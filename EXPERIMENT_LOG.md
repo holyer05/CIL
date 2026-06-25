@@ -19,19 +19,29 @@
 
 | ID | 日期 | Commit | 方法/目的 | 数据集与协议 | Seed | 状态 | 关键结果 |
 |---|---|---|---|---|---:|---|---|
-| SETUP-001 | 2026-06-25 | `909b5d0` | 初始化 GitHub 与 workspace 管理 | 不适用 | - | 完成 | 尚未运行模型实验 |
+| SETUP-001 | 2026-06-25 | `909b5d0` | 初始化 GitHub 版本管理 | 不适用 | - | 完成 | 尚未运行模型实验 |
+| SETUP-002 | 2026-06-25 | `e112fd0` | 初始化持续维护的科研 workspace 文档 | 不适用 | - | 完成 | 建立五份状态文档 |
 
 ## 详细记录
 
 ### SETUP-001：项目版本管理与研究日志初始化
 
 - 日期：2026-06-25
-- Commit：`909b5d0c973126be5cc818d8bd85e3d07c3eb2aa`（workspace 文档提交将在后续 commit）
+- Commit：`909b5d0c973126be5cc818d8bd85e3d07c3eb2aa`
 - 环境：AutoDL，Ubuntu 22.04，NVIDIA GeForce RTX 3080 Ti
 - 操作：建立根 Git 仓库、仓库级 deploy key、自动推送 hook、安全忽略规则和同步脚本。
 - 验证：本地与远端 `main` HEAD 一致；工作区干净；未跟踪凭据、论文 PDF、权重或数据集。
 - 结果：项目具备基础版本追踪能力。
 - 限制：尚未固化训练环境，尚未完成任何 baseline 复现。
+
+### SETUP-002：持续维护的科研 workspace 初始化
+
+- 日期：2026-06-25
+- Commit：`e112fd0`
+- 操作：创建 `PROJECT.md`、`IDEA_POOL.md`、`EXPERIMENT_LOG.md`、`TODO.md` 和 `PAPER_OUTLINE.md`，并将同步维护要求写入 `AGENTS.md`。
+- 验证：五份文件均为有效 UTF-8，必需章节齐全，`git diff --check` 通过。
+- 结果：项目目标、想法、实验、任务和论文证据开始分别维护。
+- 限制：候选研究方向尚未完成文献新颖性审计或实验验证。
 
 ## 新实验模板
 
