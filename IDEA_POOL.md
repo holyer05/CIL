@@ -122,13 +122,209 @@
 - 原因：问题直觉合理，但核心等价关系未经证明，现有工作已经隐含覆盖大部分动机，且最新漂移补偿工作使方法空间拥挤。当前版本更像一套诊断视角，而不是足以支撑 AAAI/CVPR 的独立贡献。
 - 项目动作：从“主方向”降级为`暂缓`。只有当不可识别性分析和跨任务代理验证同时通过，并能证明其区别于简单 residual/density/cycle-consistency 指标时，才重新评估；否则转为实验诊断工具，不作为论文主贡献。
 
+## ASSUMPTION-MINING-001：EFCIL 领域隐含假设审计
+
+- 状态：`调研完成，等待诊断优先级确认`
+- 范围：8 篇本地论文、PyCIL 全部方法结构、已实现 EFCIL 方法和本地未实现方法。
+- 原则：以下内容只提出可证伪假设和诊断实验，不提出新 Loss、新模块或新网络。
+- 证据边界：旧类数据可以作为隐藏 oracle 评价集，但不能参与训练、阈值选择或方法调参。
+
+### A01：第一任务学到的表示足以支撑全部未来类别
+
+- **依赖者**：LwF；PASS、IL2A、SSRE、FeTrIL、SimpleCIL、ACIL、DS-AL；IR、PRL；多数 warm-start 或冻结 backbone 方法。
+- **为什么可能不成立**：第一任务类别可能只覆盖未来视觉因素的一小部分。相同类别数下，不同语义组成、纹理复杂度和域覆盖会产生完全不同的可迁移表示。
+- **失效现象**：最终性能和方法排名主要由第一任务类别决定；后续算法改进很小；在 semantic-far 类上所有方法同时失败。
+- **诊断实验**：固定类别数和训练预算，构造高覆盖、低覆盖、语义集中和随机第一任务；在尚未增量训练前，测量第一任务 backbone 对未来各任务的冻结 linear probe、kNN 和类内/类间可分性，再与最终增量性能相关。
+- **若证伪后的主线潜力**：`高`。可形成“EFCIL 的隐藏瓶颈是初始表示覆盖而非遗忘算法”的协议与因果分析论文；但需与已有 pre-training/base-task 研究明确区分。
+
+### A02：随机类顺序可以代表真实难度，方法排名对顺序稳定
+
+- **依赖者**：PyCIL `DataManager` 的随机重排；本地 8 篇论文及几乎全部标准 CIL benchmark。
+- **为什么可能不成立**：类顺序控制新旧类语义相似度、任务间域差异和第一任务覆盖。少量随机 seed 不能代表这些结构因素。
+- **失效现象**：同一方法跨顺序方差大于论文增益；方法排名反转；“cold-start 优势”只出现在特定类别排列。
+- **诊断实验**：按语义相似度、预训练特征距离、视觉域和随机顺序分层采样；报告排序稳定性、排名相关系数、方差分解以及方法增益相对顺序效应的比例。
+- **若证伪后的主线潜力**：`高`。可以发展为 EFCIL 协议可靠性或 benchmark robustness 论文，不需要新方法。
+
+### A03：当前任务数据能够作为旧任务函数的有效代理
+
+- **依赖者**：LwF 的 new-data distillation；SDC、LDC 的当前数据漂移估计；EFC 的当前任务约束；部分 PASS/SSRE 蒸馏流程。
+- **为什么可能不成立**：新旧类别分布不重叠时，旧模型在新类输入上的响应只是 OOD 行为，未必约束旧类决策区域。
+- **失效现象**：新数据上的 teacher-student 一致性很高，但隐藏旧数据上的输出、排序和特征严重变化；语义距离越远的旧类遗忘越大。
+- **诊断实验**：逐任务比较新类数据上的蒸馏一致性与隐藏旧类数据上的真实功能保持；按新旧类语义距离分组，并使用无关图像或噪声作为蒸馏支持对照。
+- **若证伪后的主线潜力**：`高`。可形成“new-data distillation 到底保留了什么”的机制分析；该问题比单一漂移补偿更广。
+
+### A04：相邻任务特征空间之间存在可共享、平滑且可外推的变换
+
+- **依赖者**：SDC 的局部平移；LDC 的 learned projector；ADC/APR 的跨模型迁移和 transfer matrix；FeTrIL 的类间平移。
+- **为什么可能不成立**：深网更新可能产生类条件化、分段非线性或激活边界切换，同一映射不能同时描述旧类和新类。
+- **失效现象**：当前类配对特征拟合误差低，但旧类 oracle 映射误差高；不同旧类需要相反变换；后期任务误差快速增长。
+- **诊断实验**：使用隐藏旧数据分别拟合和评价平移、线性、局部及类条件 oracle 映射；比较 current-to-current 泛化误差与 current-to-old 泛化误差，而不据此设计新映射。
+- **若证伪后的主线潜力**：`中高`。可形成漂移补偿适用边界论文，但与 IDEA-001、LDC、BiCyc 的重叠风险较高。
+
+### A05：一个 class mean/prototype 足以代表旧类
+
+- **依赖者**：PyCIL NME；PASS、FeTrIL、SimpleCIL、SSRE；SDC、EFC、ADC、LDC、IR、PRL、APR；大多数 prototype-centric EFCIL。
+- **为什么可能不成立**：真实类分布可能多模态、长尾、非凸，类别判别由边界或少数子簇决定，均值可能落在低密度甚至错误类别区域。
+- **失效现象**：即使使用当前模型重新计算 oracle prototype，NCM 仍远低于隐藏旧数据上的 linear probe、kNN 或多中心 oracle；细粒度类别和高类内差异类别尤其严重。
+- **诊断实验**：每个任务比较 stale prototype、oracle current prototype、隐藏旧数据 linear probe、kNN 和多中心 oracle；用多模态度、类内散度和 prototype density 预测误差差距。
+- **若证伪后的主线潜力**：`很高`。这是 prototype-centric EFCIL 的共同基础，系统证伪可重新解释大量结果；诊断本身即可构成主线。
+
+### A06：均值和协方差构成足够准确的 Gaussian 类分布
+
+- **依赖者**：IL2A；FeCAM、EFC、AdaGauss、APR；所有基于 Gaussian pseudo-feature 或 Mahalanobis 分类的方法。
+- **为什么可能不成立**：深度特征常具有偏态、重尾、多模态和低维流形结构；高维小样本 covariance 估计不稳定。
+- **失效现象**：协方差更新更准确但分类不改善；Gaussian pseudo-feature 可被轻易识别；Mahalanobis 置信度失准；细粒度数据集性能下降。
+- **诊断实验**：对隐藏旧类特征做正态性、谱稳定性和 bootstrap 分析；比较 Gaussian held-out likelihood、真实/伪特征可分性及 oracle Mahalanobis 与非参数 oracle 的误差。
+- **若证伪后的主线潜力**：`高`。可以形成“低阶统计是否足以支撑 EFCIL”的系统研究；避免直接跳到新的分布模型。
+
+### A07：由 prototype/covariance 生成的 pseudo-feature 位于真实旧类流形上
+
+- **依赖者**：PASS 的 prototype 加噪；IL2A 的统计校正；FeTrIL 的特征平移；EFC 的 Gaussian prototype rehearsal；AdaGauss、APR 及其他 pseudo-feature replay。
+- **为什么可能不成立**：高维空间中围绕均值采样很容易落入训练分布外；匹配一二阶统计不保证局部密度、边界和语义结构正确。
+- **失效现象**：分类器在伪特征上训练良好却在真实旧类上下降；真实与伪特征可被简单 probe 高精度区分；伪特征增加后收益饱和或反向。
+- **诊断实验**：使用隐藏旧类特征，仅作评价，测量真实/伪特征二样本可分性、最近邻纯度、precision/recall、边界覆盖和分类器在两者之间的泛化差距。
+- **若证伪后的主线潜力**：`很高`。pseudo-replay 是多条 EFCIL 路线的共同支柱，系统验证其“统计正确但流形错误”可能形成独立论文。
+
+### A08：对抗扰动后的新类图像是有效的旧类代理，并能跨任务模型迁移
+
+- **依赖者**：ADC、APR。
+- **为什么可能不成立**：靠近旧 prototype 只是在旧模型特征中的优化结果，图像语义仍可能属于新类或完全离开自然图像流形；迁移性可能依赖攻击强度和架构。
+- **失效现象**：旧空间距离很近但新空间不接近真实旧类；攻击参数轻微变化就导致漂移估计波动；跨 backbone 或长任务序列失效。
+- **诊断实验**：比较 adversarial proxy 与隐藏真实旧类在旧/新模型中的距离、邻域类别、分类一致性和跨 backbone 迁移；分离“靠近 prototype”与“接近真实分布”。
+- **若证伪后的主线潜力**：`中高`。可形成 adversarial pseudo-replay 的有效性边界研究，但覆盖方法较少。
+
+### A09：旧模型在新类图像上的 soft target 含有可用旧知识
+
+- **依赖者**：LwF；PyCIL 中 LwF、iCaRL、WA、BiC、PASS、SSRE 等蒸馏式实现；LDC/ADC 的训练底座。
+- **为什么可能不成立**：旧模型对新类通常低置信或错误高置信，soft target 可能主要反映类先验和偶然纹理，而非旧类决策结构。
+- **失效现象**：蒸馏损失下降但旧类保持不变或更差；随机 teacher、温度和新类组成对结果影响异常大；teacher 熵与保留效果无关。
+- **诊断实验**：统计 teacher 在新数据上的熵、margin、类覆盖和稳定性，并与隐藏旧类 retention 关联；加入标签打乱、随机 teacher 或无关数据的诊断对照。
+- **若证伪后的主线潜力**：`高`。LwF 假设历史悠久但在 cold-start EFCIL 中缺少系统检验。
+
+### A10：旧类判别信息仍在当前 backbone 中，主要问题只是 classifier/prototype 失配
+
+- **依赖者**：LDC 的核心分析；SDC、ADC 等 prototype correction；NCM/SimpleCIL；部分 classifier calibration 方法。
+- **为什么可能不成立**：backbone 可能真正丢失旧类可分特征，均值校准无法恢复被压缩或混合的类内结构。
+- **失效现象**：oracle prototype 仍表现差；隐藏旧类上的 linear probe、kNN 和类间 margin 同步下降；补偿只能短期改善。
+- **诊断实验**：每个任务保存模型快照，用隐藏旧类数据计算 oracle NCM、linear probe、kNN、Fisher ratio、类内/类间散度和表示相似性，分解“表示丢失”与“统计失配”。
+- **若证伪后的主线潜力**：`很高`。可直接挑战“not all forgetting is catastrophic”的普适性，并决定领域是否过度聚焦 prototype correction。
+
+### A11：通用数据增强对所有类别都保持标签，并为未来类别扩展有效空间
+
+- **依赖者**：IR 的 rotation/mixup/augmentation；PRL 的基础表示塑形；PASS、SSRE；PyCIL 固定 crop/flip 管线；APR 的 augmentation search。
+- **为什么可能不成立**：旋转、裁剪、翻转在细粒度或方向敏感类别中可能改变判别属性；扩大增强轨迹不等于扩大未来可分空间。
+- **失效现象**：CIFAR 有效但 CUB/ImageNet 子类失效；特定类别系统性受损；增强线性可分性提高但真实测试准确率下降。
+- **诊断实验**：按类别测量增强前后 oracle label consistency、teacher consistency、特征位移和未来 linear probe；比较通用增强在 coarse 与 fine-grained 数据上的作用。
+- **若证伪后的主线潜力**：`中高`。可形成 future-compatible representation 的假设审计，但数据增强研究本身较拥挤。
+
+### A12：冻结或预训练表示对未来域已经足够
+
+- **依赖者**：FeTrIL、FeCAM、SimpleCIL、ACIL、DS-AL；Aper、TagFex；多数 pretrained CIL 路线。
+- **为什么可能不成立**：预训练域覆盖不均，第一任务训练又可能进一步偏向当前类别；“不遗忘”可能只是“不学习新表征”。
+- **失效现象**：方法在语义接近预训练域时很强，在 domain-shift 或细粒度数据上明显落后；新类性能随任务推进下降但 forgetting 指标很好看。
+- **诊断实验**：在增量训练前测量 frozen backbone 对每个未来任务的 linear probe；比较不同预训练来源、from-scratch 第一任务和域偏移下的 old/new accuracy。
+- **若证伪后的主线潜力**：`中高`。问题重要，但近期已有 pre-training reality-check 类工作，新颖性需要额外审计。
+
+### A13：任务边界已知，且每个任务有足量批量数据可统计
+
+- **依赖者**：PyCIL 统一 task loop；SDC、LDC、ADC、APR；prototype/covariance 构建；所有按 task 更新旧模型的方法。
+- **为什么可能不成立**：真实流中边界可能模糊，新类渐进出现，当前数据量不足以稳定估计 prototype、covariance 或映射。
+- **失效现象**：缩小 batch 或延迟边界后性能骤降；相同样本按不同 chunk 划分得到不同结果；统计量在小批次下高方差。
+- **诊断实验**：不改模型，仅改变同一数据流的 chunk 大小、边界噪声和每类样本量；报告结果对分块方式的敏感性和统计置信区间。
+- **若证伪后的主线潜力**：`中`。可转为 task-free/online EFCIL 设定，但会扩大问题范围。
+
+### A14：类别互斥、标签稳定，测试集只包含已见类别
+
+- **依赖者**：PyCIL 类索引重映射；本地全部论文；NCM、softmax 和 prototype pool。
+- **为什么可能不成立**：现实中类别可能重现、细化、合并或语义重叠，旧类数据也可能再次出现但没有旧标签。
+- **失效现象**：重复类被当作新类学习；层级相近类别之间的错误被计为遗忘；prototype pool 出现冲突或重复。
+- **诊断实验**：构造少量 recurring、overlapping 和 hierarchical class streams，观察标准指标和模型行为是否仍可解释。
+- **若证伪后的主线潜力**：`中高`。现实意义强，但会从标准 EFCIL 转为更开放的类别演化问题。
+
+### A15：类别与任务近似平衡，统一阈值和分类规则足够
+
+- **依赖者**：PyCIL 的标准均衡切分；NCM、cosine classifier；PASS/IL2A/SSRE 的 pseudo-feature 采样；多数论文平均准确率。
+- **为什么可能不成立**：真实数据常长尾，旧类统计来自历史全量而新类训练量不等；任务先验随时间变化。
+- **失效现象**：task-recency bias 或 old-class bias 被错误解释为表示遗忘；方法排名随类频率改变；统一 prototype 规则失准。
+- **诊断实验**：固定类别与顺序，只改变每类样本数、任务规模和测试先验；分解表示准确率、校准和 prior-shift 影响。
+- **若证伪后的主线潜力**：`中`。已有 long-tailed CIL 文献，需证明 EFCIL 中存在不同机制。
+
+### A16：归一化后的 Euclidean/cosine 几何跨任务保持可比
+
+- **依赖者**：PyCIL NME；cosine heads；PASS、SSRE、FeTrIL、SimpleCIL；SDC/LDC/ADC；IR、PRL。
+- **为什么可能不成立**：特征可能各向异性、出现 norm drift、hubness 和距离集中；归一化会丢失有用尺度信息。
+- **失效现象**：角度 margin 看似稳定但类别错误增加；少数 prototype 成为 hub；raw 与 normalized classifier 排名反转。
+- **诊断实验**：逐任务测量 norm 分布、各向异性、hubness、距离集中、类内/类间角度；比较 raw、normalized、whitened oracle 几何，仅用于分析。
+- **若证伪后的主线潜力**：`高`。NCM/cosine 是 EFCIL 的基础设施，系统证伪具有广泛影响。
+
+### A17：逐任务估计和修正可以稳定组合，长期误差不会路径依赖
+
+- **依赖者**：SDC、LDC、ADC、APR 的递归 prototype/statistics 更新；所有只保留上一任务模型和旧统计的方法。
+- **为什么可能不成立**：每步小偏差会累积；映射组合不满足结合性；同一数据按不同任务粒度划分可能产生不同最终统计。
+- **失效现象**：后期任务误差超线性增长；直接 old-to-current oracle 与 chained estimate 差距扩大；任务拆分越细越差。
+- **诊断实验**：保持类别总量和训练样本不变，改变任务粒度与分组路径；比较直接 oracle 漂移、逐步估计漂移、循环误差和最终 prototype 路径差异。
+- **若证伪后的主线潜力**：`高`。长期组合性是漂移补偿论文常被平均准确率掩盖的基础假设；但需考虑 BiCyc 的相关工作。
+
+### A18：平均准确率和标准 forgetting 能准确反映研究机制
+
+- **依赖者**：PyCIL `trainer.py`；本地全部论文的 `A_inc`、`A_last` 或 forgetting 报告。
+- **为什么可能不成立**：平均值混合旧类表示损失、新类学习不足、分类器校准和任务先验；少数类别完全崩溃可被平均值隐藏。
+- **失效现象**：两个方法平均准确率相近，但旧/新平衡、最差类、校准和表示可恢复性完全不同；方法排名随指标改变。
+- **诊断实验**：同时报告 per-class trajectory、old/new accuracy、worst-group、balanced accuracy、校准、oracle head 和表示 probe；对指标做误差来源分解。
+- **若证伪后的主线潜力**：`高`。可形成 EFCIL evaluation paper，且会改变现有结论解释。
+
+### A19：保存 prototype、covariance、旧模型等仍然具有明确的隐私和存储优势
+
+- **依赖者**：所有 exemplar-free 方法；尤其 EFC、FeCAM、AdaGauss、APR、ACIL/DS-AL 和保存旧网络的蒸馏方法。
+- **为什么可能不成立**：高维统计量和模型参数可能泄露成员、属性或可重建信息；完整 covariance 或模型副本的字节数可能超过小型 exemplar memory。
+- **失效现象**：在 byte-matched 比较中“无样例”方法不再省内存；prototype/statistics 支持成员推断或属性泄露；隐私论证只停留在不存图像。
+- **诊断实验**：统一计算长期存储、峰值显存和训练算力；进行 byte-matched exemplar 对照，并对存储统计做标准 membership/property/reconstruction 风险审计。
+- **若证伪后的主线潜力**：`很高`。可形成资源与隐私 reality-check 论文，不依赖新模型；需要严格安全实验设计。
+
+### A20：论文超参数和训练预算能跨任务序列、数据集和方法公平迁移
+
+- **依赖者**：PyCIL 中大量 Python 硬编码超参数；本地论文使用固定增强、学习率、first-task epoch 和方法特定验证协议。
+- **为什么可能不成立**：超参数可能针对固定类顺序、任务数或测试集调优；不同方法使用不同训练轮次、预训练和额外计算。
+- **失效现象**：官方数字无法在统一预算下复现；换顺序后增益消失；方法排名主要由训练预算或调参自由度决定。
+- **诊断实验**：建立 held-out class-order/dataset 的 nested validation；在 matched epoch、FLOPs、预训练和存储预算下复评，并报告超参数敏感性。
+- **若证伪后的主线潜力**：`高`。可以形成 EFCIL reproducibility/fair-comparison 论文，并直接解释 PyCIL 现有配置风险。
+
+## 最值得继续研究的三个假设
+
+### Top 1：A01 第一任务表示覆盖是否决定了大部分 EFCIL 上限
+
+- 覆盖方法最广，同时解释 cold-start/warm-start 巨大差异。
+- 诊断成本低：不需要新方法，只需第一任务后冻结评测未来类别。
+- 如果第一任务 coverage 能比算法名称更好地预测最终结果，现有比较协议需要重估。
+- 风险：pre-training 与 base-task 影响已有相关研究，必须把“from-scratch 第一任务语义覆盖和方法排名稳定性”界定清楚。
+
+### Top 2：A05 单 prototype 是否真的是旧类的充分表示
+
+- prototype 是 SDC、LDC、ADC、IR、PRL、PASS、FeTrIL、SimpleCIL 等不同路线的共同接口。
+- 可以用 oracle current prototype、linear probe、kNN 和多模态度直接证伪，不依赖任何新模块。
+- 若 oracle prototype 本身不足，继续优化 prototype 漂移估计只能改善次要误差。
+- 该问题对 coarse-grained 与 fine-grained 数据的差异尤其可能产生稳定结论。
+
+### Top 3：A07 pseudo-feature 是否“统计正确但流形错误”
+
+- 覆盖 PASS、IL2A、FeTrIL、EFC、AdaGauss、APR 等多条强路线。
+- 现有论文常验证最终准确率或一二阶统计，却较少直接验证 pseudo-feature 与真实旧类流形的一致性。
+- 诊断可以明确区分“伪特征有用”与“伪特征真实”，避免把分类器正则化效果误写成旧类重建。
+- 若证伪，可形成跨方法的机制分析和评测标准，而不必立即提出替代生成机制。
+
+## 本轮筛选结论
+
+- 当前没有选定新的算法方向。
+- IDEA-001 保持 `暂缓（Weak Reject）`，本轮不继续优化。
+- 下一阶段只允许为 A01、A05、A07 固化诊断协议和失败标准；在诊断完成前，不进入方法设计。
+
 ### IDEA-002：低秩协方差漂移的可靠迁移
 
-- 状态：`暂缓`
+- 状态：`暂缓（等待 A06 诊断）`
 - 研究问题：均值 transport 之外，旧类 covariance 的哪些低秩方向可以安全更新？
 - 动机：EFC 明确指出 covariance drift 仍是开放问题；AdaGauss 与 APR 已表明 covariance adaptation 和 dimensional collapse 很重要。
 - 主要风险：AdaGauss 和 APR 已直接覆盖 covariance 迁移，单纯增加低秩分解新颖性不足。
-- 准入条件：只有当 IDEA-001 的诊断显示 covariance 残差是主要分类错误来源，并且“可靠性门控”能提供明确差异时才进入实现。
+- 准入条件：只有当 A06 的独立诊断证明 Gaussian/covariance 近似既是主要误差来源、又存在尚未被 AdaGauss/APR 覆盖的问题时，才重新评估；当前不设计实现。
 
 ### IDEA-003：面向未来类别的表示空间预留
 
@@ -143,6 +339,7 @@
 - 状态：`候选（支撑性贡献）`
 - 研究问题：不同“无样例”方法实际存储的旧模型、prototype、covariance、索引、增强策略和生成器参数是否公平？
 - 动机：APR 显示 covariance 可占约百 MB；解析方法和生成方法也有不同隐性预算。
+- 对应假设：A19。
 - 用途：作为主方法的评测规范和附加贡献，不单独作为当前主论文问题。
 - 验收：统一报告训练内存、长期存储、额外算力、是否需要 task boundary、是否存在数据泄露风险。
 

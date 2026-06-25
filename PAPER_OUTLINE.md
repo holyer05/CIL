@@ -1,183 +1,151 @@
 # PAPER_OUTLINE.md
 
-> 论文结构与“主张-证据”映射。当前仅为研究路线提纲，不代表已有实验结论。最后更新：2026-06-25。
+> 论文结构与“主张-证据”映射。当前处于 Assumption Mining Mode，没有选定论文主线，也没有方法章节。最后更新：2026-06-25。
 
-## 暂定题目方向
+## 当前写作状态
 
-暂不固定正式题目。工作标题可使用：
+- IDEA-001 已经 PI 审计并评为 `Weak Reject`，原 observability-aware drift compensation 提纲停止使用。
+- 当前不设正式题目，不写确定性摘要，不预设新方法。
+- 论文方向必须由可证伪诊断结果选择，而不是先确定叙事再寻找支持实验。
 
-> When Should Old Prototypes Move? Observability-Aware Drift Compensation for Exemplar-Free Class-Incremental Learning
+## 候选问题池
 
-该标题只表达研究问题，不应在核心诊断成立前作为最终包装。
+`IDEA_POOL.md` 已记录 20 项 EFCIL 隐含假设。优先检查：
 
-## 一句话问题定义
+1. `A01`：第一任务表示是否足以支撑未来类别；
+2. `A05`：单 prototype 是否足以代表旧类；
+3. `A07`：pseudo-feature 是否位于真实旧类流形。
 
-无旧样本时，当前任务数据并不能完整观测旧类在新特征空间中的变化；现有漂移补偿方法通常默认估计结果应作用于所有旧类和所有方向，因此可能把不可辨识的漂移误当作可恢复信号。
+这三项当前只是候选研究问题，不是论文结论。
 
-## 暂定核心假设
+## 条件性论文主线 A：第一任务覆盖决定 EFCIL 上限
 
-以下均为待验证假设：
+### 可能成立的核心主张
 
-1. 相邻任务间的特征变化包含当前数据支持的低秩共享分量，以及无法由当前数据识别的残差。
-2. 当前数据覆盖度或 leverage/uncertainty 分数能够预测旧类 prototype 补偿误差。
-3. 只更新高支持分量、对低支持分量保守锚定，会优于无条件全空间映射。
-4. 该收益来自补偿可靠性，而不是额外参数、更多训练轮次或更强正则化。
+> 在 from-scratch EFCIL 中，第一任务的语义和视觉覆盖比后续算法选择更能解释最终性能与方法排名。
 
-若诊断不支持，必须修改或放弃主张。
+### 必须具备的证据
 
-## 预期贡献形态
+- 第一任务类别数固定，仅改变类别组成和覆盖度。
+- 第一任务后、任何增量训练前，对未来类别做冻结 linear probe、kNN 和可分性评价。
+- 多种类顺序、多 seed、至少三个数据集。
+- 方差分解证明 base coverage 的解释量显著高于随机噪声和常见方法增益。
+- 方法排名在不同 coverage 条件下发生稳定变化，而非单次异常。
+- 与已有 pre-training/base-task sensitivity 工作的差异明确。
 
-1. 提出 EFCIL 中“漂移可观测性”的问题定义和可测量诊断。
-2. 证明或实证展示当前任务覆盖与旧类补偿误差的关系。
-3. 提出轻量的 observability-aware conservative transport。
-4. 建立统一的旧信息存储与额外计算预算报告。
+### 不能支撑该主张的结果
 
-贡献 1-2 比方法模块更重要；若机制不成立，不继续堆叠组件。
+- 只比较 small-base 与 large-base。
+- 只在一个 CIFAR-100 顺序上报告相关性。
+- 用最终准确率反向定义 coverage。
+- 第一任务训练预算、类别数和语义覆盖同时变化。
 
-## 论文结构
+### 当前状态
 
-### 1. Introduction
+`未开始诊断`
 
-- EFCIL 的隐私与存储动机。
-- cold-start 需要 backbone plasticity，因此 prototype/statistics 会漂移。
-- SDC、LDC、ADC、AdaGauss、APR 已显著改进“如何估计漂移”。
-- 未解决问题：当前数据对旧类漂移的支持不均匀，估计可能不可辨识。
-- 核心观点：补偿应带有“证据范围”和拒绝机制。
+## 条件性论文主线 B：单 prototype 不是旧类充分表示
 
-### 2. Related Work
+### 可能成立的核心主张
 
-#### 2.1 Exemplar-Free CIL
+> prototype-centric EFCIL 的主要误差在部分场景中不是 prototype 位置估计不准，而是单均值表示本身无法表达旧类判别结构。
 
-LwF、PASS/IL2A/SSRE、FeTrIL/FeCAM、ACIL/DS-AL。
+### 必须具备的证据
 
-#### 2.2 Representation and Prototype Drift
+- 比较 stale prototype、oracle current prototype、隐藏旧数据 linear probe、kNN 和多中心 oracle。
+- 证明 oracle current prototype 仍存在显著且稳定的不可恢复差距。
+- 差距能被类内多模态度、散度、边界复杂度或 fine-grained 属性解释。
+- 覆盖 SDC/LDC/ADC 类漂移方法和 PASS/FeTrIL/SimpleCIL 类 prototype 方法。
+- coarse-grained 与 fine-grained 数据集结论一致或具有可解释差异。
+- 旧数据只作为隐藏 oracle，不参与训练和方法选择。
 
-SDC、EFC、ADC、LDC、FCS/ESSA、AdaGauss、APR。
+### 不能支撑该主张的结果
 
-需要按以下维度比较：
+- stale prototype 不如 oracle prototype。
+- NCM 不如某个训练预算更大的 classifier。
+- 只展示 t-SNE/UMAP。
+- 只在一个类别或一个任务上观察到多模态。
 
-- 漂移对象：feature / mean / covariance / classifier；
-- 估计数据：当前原图 / 对抗图 / pseudo-feature；
-- 映射形式：局部平移 / 全局线性 / 非线性 / 每类迁移；
-- 是否估计可靠性；
-- 是否允许拒绝更新；
-- 长期存储和计算成本。
+### 当前状态
 
-#### 2.3 Future-Compatible Representation
+`未开始诊断`
 
-IR、PRL、DCNet。说明本项目不主张再次设计空间分离 Loss，而是研究 transport 的可观测边界。
+## 条件性论文主线 C：pseudo-feature 统计正确但流形错误
 
-### 3. Problem Formulation
+### 可能成立的核心主张
 
-- 任务序列和无样例约束。
-- 旧/新 feature extractor：`f_{t-1}` 与 `f_t`。
-- 当前任务在旧空间和新空间中的配对特征。
-- 旧类 prototype/covariance 状态。
-- oracle drift 仅作为诊断真值。
-- 定义支持子空间、不可观测残差和 compensation error。
-- 定义 storage budget，prototype/covariance/旧模型/索引均计入。
+> 多种 EFCIL pseudo-replay 方法能够匹配旧类均值或协方差，却没有恢复真实旧类流形；其收益可能来自分类器正则化，而不是旧类数据分布重建。
 
-### 4. Diagnostic Study
+### 必须具备的证据
 
-#### 4.1 How Much Drift Is Shared?
+- 覆盖 PASS、IL2A、FeTrIL、EFC、AdaGauss、APR 中至少三种不同 pseudo-feature 机制。
+- 对真实隐藏旧特征与伪特征做二样本可分性、最近邻纯度、distribution precision/recall 和边界覆盖。
+- 比较在伪特征上训练、在真实旧特征上测试的跨分布泛化。
+- 区分一二阶统计匹配、流形匹配和最终分类收益。
+- 证明结论跨任务、数据集、backbone 和伪特征数量稳定。
+- 不把“可以区分真实/伪特征”单独当作失败，必须连接到分类或决策边界后果。
 
-- 漂移矩阵谱、有效秩、跨类/跨任务稳定性。
-- cold-start 与 warm-start 对比。
+### 不能支撑该主张的结果
 
-#### 4.2 Is Drift Observable from Current Data?
+- 伪特征的 t-SNE 与真实特征看起来不同。
+- 伪特征均值或协方差存在误差。
+- 某一种采样超参数表现不好。
+- 只比较最终平均准确率，不分析分布和跨分布泛化。
 
-- 当前任务覆盖度与旧类 oracle drift 的关系。
-- semantic-near 与 semantic-far old classes。
-- 后期任务是否出现支持度下降。
+### 当前状态
 
-#### 4.3 When Does Compensation Hurt?
+`未开始诊断`
 
-- NCM、SDC、LDC 与 oracle 的每类误差。
-- 错误补偿率和性能下降案例。
+## 共同诊断章节模板
 
-该章节是方法准入门槛。如果结论不成立，不进入第 5 节所设想的方法。
+无论最终选择哪条主线，证据结构应保持一致：
 
-### 5. Method（条件性占位）
+### 1. Problem Audit
 
-#### 5.1 Supported Low-Rank Transport
+- 明确被领域依赖但未验证的假设。
+- 列出依赖该假设的本地论文、PyCIL 方法和近期方法。
+- 区分论文显式声明、代码隐式选择和本项目推断。
 
-从当前任务的 paired old/new features 估计低秩 transport。
+### 2. Controlled Protocol
 
-#### 5.2 Class/Direction Observability
+- 固定训练预算、类别数、任务数和 backbone。
+- 将待检查变量与类顺序、随机种子、预训练和任务规模解耦。
+- 旧类数据仅用于隐藏 oracle 评价。
 
-为旧类 prototype 的每个分量计算支持度或置信度。
+### 3. Falsification Tests
 
-#### 5.3 Conservative Update
+- 预先写出支持条件和证伪条件。
+- 报告效应量、置信区间和跨数据集稳定性。
+- 包含能够推翻本项目解释的简单反例和替代解释。
 
-- 高支持分量：执行 transport；
-- 低支持分量：锚定、收缩或拒绝更新；
-- 可选：同一原则扩展到低秩 covariance。
+### 4. Consequence Analysis
 
-#### 5.4 Complexity
+- 说明假设失效后，哪些现有结论需要重解释。
+- 区分表示问题、分类器问题、统计近似问题和评测问题。
+- 不把诊断现象直接包装成新算法需求。
 
-目标为闭式 ridge/SVD 或单层线性计算，不引入生成器和复杂网络。
+### 5. Limitations
 
-### 6. Experiments
+- 说明 oracle 旧数据只适用于分析，不是部署条件。
+- 说明结论是否依赖 benchmark、backbone、任务边界或标签设定。
+- 报告长期存储、训练算力和潜在隐私风险。
 
-#### 6.1 Protocol
+## 主张-证据门槛
 
-- 主设置：from-scratch cold-start。
-- 数据集：CIFAR-100、TinyImageNet、ImageNet100。
-- 多 seed 和固定类顺序清单。
-- 指标：`A_inc`、`A_last`、forgetting、old/new accuracy、per-class compensation error。
-
-#### 6.2 Baselines
-
-FineTune、LwF+Linear、LwF+NCM、SDC、LDC、FeTrIL；条件允许加入 EFC、ADC、AdaGauss、APR。
-
-#### 6.3 Mechanism Validation
-
-- 支持度-误差相关性和校准；
-- oracle drift explained variance；
-- 高/低支持类的分组结果；
-- 错误补偿拒绝率。
-
-#### 6.4 Main Results
-
-只在机制诊断成立后报告。
-
-#### 6.5 Ablation and Controls
-
-- 无门控 / 随机门控 / 距离门控 / observability 门控；
-- 全秩 / 低秩；
-- 同参数量和同训练预算；
-- mean-only 与 mean+covariance；
-- task order、任务数和 domain shift。
-
-#### 6.6 Cost and Privacy Accounting
-
-报告模型副本、prototype、covariance、projector、索引、增强参数、训练时间和显存。
-
-### 7. Limitations
-
-预期限制包括：依赖任务边界、当前任务过小时估计不足、极端 domain shift 下可能拒绝大量更新、旧类统计仍可能泄露信息。
-
-### 8. Conclusion
-
-只总结被诊断和多 seed 实验支持的结论。
-
-## 主张-证据表
-
-| 主张 | 所需证据 | 当前状态 |
+| 候选主张 | 最低证据 | 当前状态 |
 |---|---|---|
-| 漂移含当前数据支持的低秩共享分量 | oracle drift 谱与跨 seed/数据集分析 | 未开始 |
-| 支持度可预测补偿误差 | per-class 相关性、排序和校准 | 未开始 |
-| 无条件补偿会伤害部分旧类 | SDC/LDC 每类负增益与案例 | 未开始 |
-| 保守更新优于全映射 | 公平主实验和随机/距离门控对照 | 未开始 |
-| 收益来自可靠性机制 | 同参数量、同训练预算、模块关闭实验 | 未开始 |
-| 额外成本可控 | 参数、存储、显存、训练时间 | 未开始 |
+| 第一任务 coverage 主导最终性能 | 多顺序方差分解、未来任务 probe、跨数据集复现 | 未开始 |
+| 单 prototype 不是充分统计 | oracle prototype 仍显著落后其他 oracle 表示，且差距可解释 | 未开始 |
+| pseudo-feature 偏离真实流形 | 多方法二样本与跨分布证据，并连接到分类后果 | 未开始 |
+| 现有平均指标掩盖真实机制 | per-class、old/new、oracle probe 与标准指标产生系统性冲突 | 未开始 |
+| 无样例具有真实资源与隐私优势 | byte-matched 成本和隐私风险审计 | 未开始 |
 
-## 写作准入条件
+## 题目与摘要准入条件
 
-在撰写确定性摘要和贡献列表前，至少需要：
+只有满足以下条件后，才能恢复正式论文 outline：
 
-- baseline 复现可信；
-- 漂移可观测性诊断在多个 seed/数据集成立；
-- 与 LDC、ADC、AdaGauss、APR 的差异明确；
-- 完整主实验和关键消融完成；
-- 所有表格可追溯到 `EXPERIMENT_LOG.md` 中的实验 ID。
+- A01、A05、A07 至少一项在多数据集、多类顺序下被稳定证伪；
+- 结果改变对现有方法或 benchmark 的解释，而不仅是一个相关性；
+- 替代解释已通过受控实验排除；
+- 与最近工作的差异能够在问题定义和证据层面说明；
+- 所有结论可追溯到 `EXPERIMENT_LOG.md` 的正式实验记录。

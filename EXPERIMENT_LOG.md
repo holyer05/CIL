@@ -22,6 +22,7 @@
 | SETUP-001 | 2026-06-25 | `909b5d0` | 初始化 GitHub 版本管理 | 不适用 | - | 完成 | 尚未运行模型实验 |
 | SETUP-002 | 2026-06-25 | `e112fd0` | 初始化持续维护的科研 workspace 文档 | 不适用 | - | 完成 | 建立五份状态文档 |
 | RESEARCH-001 | 2026-06-25 | `26887c0` | 全项目代码、论文与研究路线审计 | 不适用 | - | 完成 | 未修改 Python；主问题收敛为漂移可观测性 |
+| RESEARCH-002 | 2026-06-25 | `5974a56` | EFCIL 隐含假设挖掘 | 不适用 | - | 完成 | 记录 20 项假设；优先 A01、A05、A07 |
 
 ## 详细记录
 
@@ -63,6 +64,28 @@
 - 研究结论：最有价值的问题不是再设计无条件漂移映射，而是刻画当前数据对旧类漂移的可观测性并拒绝不可靠补偿。
 - 代码修改：无 Python、JSON 或 shell 代码修改；仅计划更新 workspace Markdown。
 - 模型实验：未运行。
+
+### RESEARCH-002：EFCIL Assumption Mining
+
+- 日期：2026-06-25
+- 审计前 Commit：`5974a56de01dccce167c9a8fd3ea106b9e74c40f`
+- 工作区：存在用户自己的 `AGENTS.md` 未提交改动；本轮不修改、不暂存、不覆盖。
+- 操作范围：
+  - 重新核对 8 篇本地论文全文提取结果；
+  - 检查 PyCIL 的 task loop、class order、NME、prototype、memory 和 forgetting 实现；
+  - 复核 LwF、PASS、IL2A、SSRE、FeTrIL、SimpleCIL、ACIL、DS-AL 等已实现 EFCIL 路线；
+  - 将 SDC、EFC、ADC、LDC、IR、PRL、APR 及近期 AdaGauss、BiCyc 等未实现路线纳入假设映射。
+- 研究产物：`IDEA_POOL.md` 中记录 20 项隐含假设，每项包含依赖方法、失效原因、预期现象、诊断实验和论文主线潜力。
+- 优先假设：
+  1. `A01` 第一任务表示覆盖是否决定大部分 EFCIL 上限；
+  2. `A05` 单 prototype 是否足以代表旧类；
+  3. `A07` pseudo-feature 是否“统计正确但流形错误”。
+- 关键决策：
+  - IDEA-001 保持 `Weak Reject/暂缓`，本轮没有继续优化；
+  - 没有提出新 Loss、新模块或新网络；
+  - 下一阶段只能固化诊断协议，不能进入方法开发。
+- 代码修改：无 Python、JSON、shell 或配置代码修改；仅更新 workspace Markdown。
+- 模型实验：未运行；本条是研究审计，不包含实验结论。
 
 ## 新实验模板
 
