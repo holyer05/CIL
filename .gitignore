@@ -1,0 +1,40 @@
+# OS and editor files
+.DS_Store
+**/.DS_Store
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+.vscode/
+.idea/
+
+# Python caches and environments
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Datasets and generated training artifacts
+data/
+datasets/
+checkpoints/
+outputs/
+runs/
+wandb/
+logs/
+*.pt
+*.pth
+*.ckpt
+*.bin
+*.safetensors
+
+# Third-party papers are kept locally and are not redistributed
+papers/*.pdf

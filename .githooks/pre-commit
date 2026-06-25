@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+max_bytes=$((50 * 1024 * 1024))
+while IFS= read -r -d '' path; do
+  case "$path" in
+    .env|*/.env|.env.*|*/.env.*|*.pem|*.key|*.p12|*.pfx|*/id_rsa|*/id_ed25519)
+      echo "Blocked sensitive file: $path" >&2
+      exit 1
+      ;;
+  esac
+
+  if [[ -f "$path" ]]; then
+    size=$(wc -c < "$path")
+    if (( size > max_bytes )); then
+      echo "Blocked file larger than 50 MiB: $path" >&2
+      exit 1
+    fi
+  fi
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
