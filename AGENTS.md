@@ -46,3 +46,15 @@
 
 9. 仓库安全
 禁止提交密码、Token、私钥、数据集、模型权重、训练缓存及第三方论文 PDF。
+
+10. Workspace持续维护
+
+项目工作区以下文件是长期状态真源，相关事实发生变化时必须在同一次工作中同步更新：
+
+- `PROJECT.md`：项目目标、阶段、范围、资源和关键决策；
+- `IDEA_POOL.md`：研究假设、创新性检查、风险和去留；
+- `EXPERIMENT_LOG.md`：实验配置、命令、日志、结果和结论，失败记录不得删除；
+- `TODO.md`：下一步任务、优先级和验收条件；
+- `PAPER_OUTLINE.md`：论文结构、主张以及对应证据状态。
+
+代码修改需至少检查 `PROJECT.md`、`TODO.md`；实验运行需更新 `EXPERIMENT_LOG.md`、`TODO.md`；研究想法变化需更新 `IDEA_POOL.md`、`PAPER_OUTLINE.md`。禁止把未验证假设写成实验结论。

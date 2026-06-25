@@ -8,6 +8,7 @@ Exemplar-free class-incremental learning research workspace based on PyCIL.
 - `papers/`: local literature workspace. Third-party PDF files are intentionally excluded from Git.
 - `AGENTS.md`: research and collaboration constraints.
 - `scripts/sync_to_github.sh`: commit and push the current workspace state.
+- `PROJECT.md`, `IDEA_POOL.md`, `EXPERIMENT_LOG.md`, `TODO.md`, `PAPER_OUTLINE.md`: continuously maintained research workspace.
 
 ## Data
 
