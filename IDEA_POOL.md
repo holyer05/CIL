@@ -803,7 +803,7 @@ A03 进入 paper gate 必须满足：
 
 - PyCIL 已实现并注册 `simplecil`、`fetril`、`lwf`，三者分别位于 `models/simplecil.py`、`models/fetril.py`、`models/lwf.py`。
 - 现有配置位于 `exps/simplecil.json`、`exps/fetril.json`、`exps/lwf.json`。
-- 当前环境缺失 `scipy`、`sklearn`、`POT/ot`、`quadprog`。由于 `models/base.py` 顶层导入 `scipy.spatial.distance.cdist`，即使 SimpleCIL/LwF 本身不显式用 NME，也会被 `scipy` 缺失阻塞。
+- baseline 覆盖审计时环境缺失 `scipy`、`sklearn`、`POT/ot`、`quadprog`；这些依赖已在后续 `ENV-001` 中补齐并锁定。由于 `models/base.py` 顶层导入 `scipy.spatial.distance.cdist`，依赖缺失会阻塞 SimpleCIL/LwF 直接运行，因此完整 PyCIL 训练仍需单独 smoke 验证。
 - 代码只内建 `cifar100`、`imagenet100`、`imagenet1000`、`cifar10`。CUB-200 数据目录存在，但 PyCIL 无 CUB dataset class。
 - `iImageNet100.download_data()` 仍有 `assert 0` 和 `[DATA-PATH]` 占位符；ImageNet-100 不能直接运行。
 - `trainer._set_random()` 固定为 seed 1；配置中的 `seed` 主要影响 DataManager 的随机类顺序，不完整控制训练随机性。
@@ -857,7 +857,27 @@ A03 进入 paper gate 必须满足：
 - `直接可支撑 Sanity 轨迹选择`：SimpleCIL for A05，LwF for A03。
 - `不能直接支撑 v1.1 指标`：oracle split、A05 medoid/2-center、A03 continuous retention 都不是现成输出。
 - `不能直接支撑 Screen`：CUB、semantic class order、FeTrIL 依赖、完整 seed 控制和 structured logging 均未满足。
-- `当前下一步`：先做 `SANITY-PLAN-001`，明确不改代码情况下哪些命令和配置可用于环境/日志干跑规划；若要真正计算 v1.1 指标，必须另开授权进入实验底座建设，而不是直接训练。
+- `当前下一步`：`experiment_base/` 已完成最小环境、数据、复现、manifest 和 smoke 验证；下一步应做 `SANITY-PLAN-001` 和 `INFRA-GAP-001`，明确 v1.1 指标需要的最小诊断 hook，而不是直接开始完整训练。
+
+## 2026-06-27 实验底座状态：ENV/DATA/REPRO/LOG/BASE-001
+
+用户已授权进入代码阶段，但范围限定为建立可信实验底座，不设计新方法。当前结果：
+
+- 新增 `experiment_base/`，保持 PyCIL 原始代码不动。
+- 已锁定并验证 `scipy==1.11.4`、`scikit-learn==1.3.2`、`POT==0.9.5`、`quadprog==0.1.12`。
+- CIFAR-100 使用 `/root/autodl-pub/cifar-100/cifar-100-python.tar.gz` 公共归档，并抽取到项目内可写缓存；ImageNet100 使用显式配置路径，不在 Python 中写死服务器路径。
+- seed 已覆盖 Python、NumPy、PyTorch、CUDA 和 class order；单 GPU device 在底座中统一处理。
+- manifest 已记录 commit、dirty 状态、配置快照、环境、class order、metrics 容器、运行时间和 GPU memory。
+- `BASE-001` smoke test 在 clean commit `fb1c38d` 通过，产物为 `experiment_base/runs/20260627T051735Z_smoke_cifar100_loader_repro_manifest/manifest.json`。
+
+这只能证明底座可运行，不证明 A05/A03 成立或不成立。当前仍缺：
+
+- A05 的 oracle-fit/oracle-eval/final-audit split、medoid、2-center oracle、capacity/storage curve；
+- A03 的 feature/logit dump、margin/rank/feature continuous retention、当前数据指标族重算；
+- semantic class order 与 CUB/ImageNet100 的完整 Sanity/Screen 支持；
+- PyCIL legacy trainer 与 `experiment_base` manifest/seed/device 之间的最小对接。
+
+因此，A05 仍为主候选，A03 仍为 claim-scope conditional 候选；当前不得把 smoke 结果写成研究发现。
 
 ## 历史记录：上一轮最值得继续研究的三个假设
 

@@ -63,9 +63,9 @@
   - 验收：形成可执行但尚未执行的 sanity checklist。
 
 - [ ] `INFRA-GAP-001` 列出 v1.1 指标落地前的最小实验底座缺口。
-  - 不写代码。
-  - 覆盖依赖、CIFAR 数据路径、semantic class order、oracle split、feature/logit dump、structured manifest、seed 控制。
-  - 验收：明确哪些属于配置/依赖问题，哪些必须修改 Python，等待用户授权后再执行。
+  - 不启动训练。
+  - 覆盖 semantic class order、oracle split、A05 medoid/2-center、A03 feature/logit dump、continuous retention、metric recompute、PyCIL legacy seed/device 对接。
+  - 验收：明确哪些已有 `experiment_base/` 支持，哪些必须新增诊断脚本或最小 trainer hook。
 
 ## 暂缓或取消
 
@@ -91,26 +91,32 @@
 
 ## P1：建立可信实验底座
 
-以下任务会涉及代码修改。当前 Assumption Mining Mode 禁止执行，只有用户明确允许后才能开始。
+以下任务已在独立 `experiment_base/` 中完成第一阶段；PyCIL 原始代码未修改。
 
-- [ ] `ENV-001` 固化运行环境
+- [x] `ENV-001` 固化运行环境
   - 补齐并锁定 scipy、scikit-learn、POT、quadprog 等依赖。
   - 验收：新 shell 中核心依赖可导入，版本记录可复现。
+  - 证据：`experiment_base/requirements.lock`；远程新 shell 已验证 scipy 1.11.4、sklearn 1.3.2、POT 0.9.5、quadprog 可导入。
 
-- [ ] `DATA-001` 配置数据路径
+- [x] `DATA-001` 配置数据路径
   - CIFAR 优先使用公共缓存；ImageNet100 使用明确路径配置，不在 Python 中写死服务器路径。
   - 验收：loader 报告正确类别数与样本规模。
+  - 证据：`experiment_base/configs/smoke_cifar100.json` 使用公共 CIFAR-100 tar 与项目内缓存；`configs/datasets.example.json` 显式声明 ImageNet100 路径；smoke loader 报告 train=50000、test=10000、classes=100。
 
-- [ ] `REPRO-001` 修复复现控制
+- [x] `REPRO-001` 修复复现控制
   - 让配置 seed 真正控制 Python、NumPy、PyTorch、CUDA 和 class order。
   - 统一单 GPU 设备处理；消除必要路径上的硬编码 `.cuda()`。
   - 验收：同 seed 可复现，不同 seed 确实改变类顺序/随机过程。
+  - 证据：`experiment_base/core/repro.py` 与 `run_smoke.py`；manifest 记录 `same_seed_reproducible=True`、`different_seed_changes_order=True`。
 
-- [ ] `LOG-001` 建立结构化运行 manifest
+- [x] `LOG-001` 建立结构化运行 manifest
   - 保存 commit、配置快照、环境、类顺序、指标矩阵、运行时间和显存。
   - 验收：任何表格数值都能追溯到唯一实验 ID 和原始文件。
+  - 证据：`experiment_base/runs/20260627T051735Z_smoke_cifar100_loader_repro_manifest/manifest.json` 记录 commit `fb1c38d`、dirty=false、配置快照、环境、class order、metrics、elapsed_seconds 和 GPU memory。
 
-- [ ] `BASE-001` 完成最小 smoke test。
+- [x] `BASE-001` 完成最小 smoke test。
+  - 证据：clean commit `fb1c38d` 下执行 `python -m experiment_base.run_smoke --config experiment_base/configs/smoke_cifar100.json` 成功。
+
 - [ ] `BASE-002` 复现 LwF+NCM 和 FeTrIL cold-start baseline。
 - [ ] `BASE-003` 复现与假设诊断直接相关的 baseline；具体集合在诊断协议完成后确定。
 

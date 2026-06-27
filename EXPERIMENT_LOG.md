@@ -27,7 +27,10 @@
 | RESEARCH-004 | 2026-06-27 | `440cd1f` | 固化 A05/A03 诊断协议 | 不适用 | - | 完成 | 明确变量、oracle 指标、失败条件和最小实验矩阵；未写代码 |
 | RESEARCH-005 | 2026-06-27 | `e4cf3e6` | PI 级反向审稿 A05/A03 诊断协议 | 不适用 | - | 完成 | 结论 Revise before experiments；指出阈值、oracle split、矩阵和替代解释问题 |
 | RESEARCH-006 | 2026-06-27 | `c927e4a` | 修订 A05/A03 诊断协议 v1.1 | 不适用 | - | 完成 | 补齐 oracle split、A05 主比较器、预算匹配、A03 连续 retention、指标预注册、三阶段矩阵 |
-| RESEARCH-007 | 2026-06-27 | 待提交 | PyCIL baseline 覆盖映射 | 不适用 | - | 完成 | SimpleCIL/LwF 可作 Sanity 轨迹；v1.1 指标和 Screen 阶段不能直接支持 |
+| RESEARCH-007 | 2026-06-27 | `0f1af06` | PyCIL baseline 覆盖映射 | 不适用 | - | 完成 | SimpleCIL/LwF 可作 Sanity 轨迹；v1.1 指标和 Screen 阶段不能直接支持 |
+| SETUP-003 | 2026-06-27 | `5e2fb4f` | 建立可信实验底座 `experiment_base/` | CIFAR-100 loader smoke 准备 | 1993 | 完成 | 锁定依赖、配置数据路径、seed/device/manifest 基础能力；未修改 PyCIL |
+| SETUP-004 | 2026-06-27 | `d516d08`/`fb1c38d` | 完善 smoke manifest 与 GPU 显存记录 | CIFAR-100 loader smoke | 1993 | 完成 | manifest 增加运行时间、metrics、GPU memory；首次 GPU reset 失败后已修复 |
+| BASE-001 | 2026-06-27 | `fb1c38d` | 最小 smoke test | CIFAR-100；loader/repro/manifest | 1993 | 完成 | manifest 绑定 clean commit；train=50000、test=10000、classes=100；same seed True、different seed True |
 
 ## 详细记录
 
@@ -171,7 +174,7 @@
   - 核对当前 Python 依赖和 `/root/autodl-pub` 数据目录。
 - 代码事实：
   - `simplecil`、`fetril`、`lwf` 已实现并在 factory 注册；
-  - 当前环境缺失 `scipy`、`sklearn`、`ot`、`quadprog`；
+  - baseline 覆盖审计时环境缺失 `scipy`、`sklearn`、`ot`、`quadprog`；后续 `ENV-001` 已补齐并锁定；
   - `models/base.py` 顶层导入 `scipy`，会阻塞当前直接运行；
   - CUB-200 数据目录存在，但 PyCIL 无 CUB dataset class；
   - ImageNet100 数据目录存在，但 `utils/data.py` 中 `iImageNet100.download_data()` 仍 assert；
@@ -185,6 +188,87 @@
   - v1.1 正式指标需要后续实验底座建设，不应直接跑训练。
 - 代码修改：无 Python、JSON、shell 或配置代码修改；仅更新 Markdown。
 - 模型实验：未运行；本条是只读 baseline 映射，不包含实验结果。
+
+### SETUP-003：建立可信实验底座 experiment_base
+
+- 日期：2026-06-27
+- Commit：`5e2fb4f5354eae860fbe9158f9bae344d9325c1a`
+- 工作区：提交前仅新增 `experiment_base/` 与 `.gitignore` 预期改动；PyCIL 原始代码未修改。
+- 目的：在 PyCIL 之外建立可信实验底座，先解决环境、数据路径、复现控制、结构化日志和最小 smoke，不进入方法设计。
+- 主要文件：
+  - `experiment_base/requirements.txt`
+  - `experiment_base/requirements.lock`
+  - `experiment_base/configs/smoke_cifar100.json`
+  - `experiment_base/configs/datasets.example.json`
+  - `experiment_base/core/config.py`
+  - `experiment_base/core/data.py`
+  - `experiment_base/core/env.py`
+  - `experiment_base/core/manifest.py`
+  - `experiment_base/core/repro.py`
+  - `experiment_base/run_smoke.py`
+- 依赖事实：远程新 shell 可导入 `scipy==1.11.4`、`scikit-learn==1.3.2`、`POT==0.9.5`、`quadprog`、`numpy==1.26.4`、`torch==2.1.2+cu118`、`torchvision==0.16.2+cu118`。
+- 数据事实：
+  - CIFAR-100 公共目录存在只读归档 `/root/autodl-pub/cifar-100/cifar-100-python.tar.gz`；
+  - `experiment_base` 使用该公共归档，但抽取到项目内可写缓存 `experiment_base/data/cifar-100`；
+  - ImageNet100 通过 `configs/datasets.example.json` 显式配置 `train_dir` 和 `val_dir`，Python 中不写死服务器路径。
+- 复现控制：
+  - `core/repro.py` 控制 Python、NumPy、PyTorch、CUDA seed；
+  - `build_class_order()` 支持配置 seed 下的 deterministic random class order；
+  - `resolve_device()` 统一单 GPU device 解析，底座路径不使用硬编码 `.cuda()`。
+- 结构化记录：
+  - manifest 记录 commit、dirty 状态、配置快照、环境、seed 状态、device、dataset、class order、loader smoke 和 metrics 容器。
+- 结果：可信实验底座第一版建立完成。
+- 限制：尚未实现 v1.1 oracle split、A05 medoid/2-center、A03 continuous retention、feature/logit dump 或 PyCIL trainer 对接。
+
+### SETUP-004：完善 smoke manifest 与 GPU 显存记录
+
+- 日期：2026-06-27
+- Commits：
+  - `d516d083e504edd38bed32b833484ca02b0cf1bc`：为 smoke manifest 增加开始/结束时间、运行时间、metrics 容器和 GPU memory 字段；
+  - `fb1c38d7db986984e320481878a1989c4aabf311`：修复 CUDA 未初始化时 `torch.cuda.reset_peak_memory_stats()` 崩溃问题。
+- 工作区：两次提交前均只修改 `experiment_base/run_smoke.py`。
+- 验证：
+  - `python -m py_compile $(find experiment_base -name '*.py' -print)` 通过；
+  - `git diff --check` 通过；
+  - 两次提交均推送到 `main`。
+- 失败记录：
+  - 在 commit `d516d08` 下运行 smoke 时失败：
+    - 命令：`python -m experiment_base.run_smoke --config experiment_base/configs/smoke_cifar100.json`
+    - 直接错误：`RuntimeError: Invalid device argument 0: did you call init?`
+    - 原因：CUDA 尚未初始化时直接调用 peak memory reset。
+  - 处理：`fb1c38d` 将 GPU memory tracking 改为安全封装，先 `set_device/init/reset`，若失败则写入 manifest error 而不阻断 smoke。
+- 结果：LOG-001 manifest 的运行时间、metrics 和显存字段可用。
+
+### BASE-001：最小 smoke test
+
+- 日期：2026-06-27
+- Commit：`fb1c38d7db986984e320481878a1989c4aabf311`
+- 工作区：clean；manifest 中 `dirty=false`。
+- 方法与开关：`experiment_base.run_smoke`，只检查 loader、seed/class order、manifest；不训练模型。
+- 配置文件：`experiment_base/configs/smoke_cifar100.json`
+- 数据集与路径：
+  - Dataset：CIFAR-100
+  - 公共归档：`/root/autodl-pub/cifar-100/cifar-100-python.tar.gz`
+  - 项目缓存：`experiment_base/data/cifar-100`
+- 任务协议：基础设施 smoke，不是 CIL 训练协议。
+- Seed：`1993`
+- 环境：Python 3.10.8；PyTorch 2.1.2+cu118；torchvision 0.16.2+cu118；单卡 NVIDIA GeForce RTX 3080 Ti。
+- 启动命令：`python -m experiment_base.run_smoke --config experiment_base/configs/smoke_cifar100.json`
+- 产物路径：`experiment_base/runs/20260627T051735Z_smoke_cifar100_loader_repro_manifest/manifest.json`
+- 状态：completed
+- 指标：
+  - CIFAR-100 train size：50000
+  - CIFAR-100 test size：10000
+  - num classes：100
+  - `same_seed_reproducible=True`
+  - `different_seed_changes_order=True`
+  - `elapsed_seconds=1.37446`
+  - GPU memory tracking：enabled；allocated/reserved/max allocated 均为 0 MiB，因为本 smoke 未执行 GPU 张量训练。
+- 观察：
+  - public CIFAR 目录不可写，直接让 torchvision 在 `/root/autodl-pub` 解压会失败；当前底座正确使用公共 tar + 项目内缓存。
+  - manifest 绑定 clean commit `fb1c38d`，可用于追溯基础设施结果。
+- 结论：ENV-001、DATA-001、REPRO-001、LOG-001 和 BASE-001 的最小验收通过。
+- 下一步：不要直接跑正式训练；先做 `SANITY-PLAN-001` 和 `INFRA-GAP-001`，明确 v1.1 指标落地需要哪些最小诊断 hook。
 
 ## 新实验模板
 

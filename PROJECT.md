@@ -22,18 +22,27 @@ IDEA-001“可观测性驱动的漂移补偿”已被 PI 审计评为 `Weak Reje
 
 ## 当前阶段
 
-- 阶段：Assumption Mining Mode；完成 20 项领域隐含假设审计，并在 2026-06-27 严格筛选为 2 个活跃候选；A05/A03 诊断协议已修订为 v1.1，并完成 PyCIL baseline 覆盖映射；尚未选定论文主线，禁止方法编码。
+- 阶段：可信实验底座建设已完成第一阶段。完成 20 项领域隐含假设审计，并在 2026-06-27 严格筛选为 2 个活跃候选；A05/A03 诊断协议已修订为 v1.1，并完成 PyCIL baseline 覆盖映射；`experiment_base/` 已通过最小 smoke test。尚未选定论文主线，禁止方法编码。
 - 代码基线：`PyCIL/`，当前没有项目自研算法实现。
+- 实验底座：`experiment_base/`，独立于 PyCIL，复用 PyCIL 可用的数据统计和类顺序思想，不搬运旧训练器或硬编码 `.cuda()` 路径。
 - 默认分支：`main`
 - 远端仓库：`holyer05/CIL`
 - 服务器工作区：`/root/autodl-tmp/CIL`
 - 公共数据目录：`/root/autodl-pub`
 - 算力：单卡 NVIDIA GeForce RTX 3080 Ti，12 GB 显存。
-- 当前结果：尚无本项目正式模型实验结果。
+- 当前结果：尚无本项目正式模型实验结果；已有 `BASE-001` 基础设施 smoke 结果，manifest 为 `experiment_base/runs/20260627T051735Z_smoke_cifar100_loader_repro_manifest/manifest.json`。
 
 ## 当前代码库实现了什么
 
 代码库是通用 PyCIL 工具箱快照，提供统一的类顺序、任务划分、训练循环、CNN/NME 评价、遗忘计算、样例内存管理和多种网络头。
+
+新增 `experiment_base/` 是本项目可信实验底座，不直接修改 PyCIL。当前已实现：
+
+- `requirements.txt` 与 `requirements.lock`：锁定 `scipy==1.11.4`、`scikit-learn==1.3.2`、`POT==0.9.5`、`quadprog==0.1.12` 等核心依赖。
+- `configs/smoke_cifar100.json` 与 `configs/datasets.example.json`：CIFAR-100 使用公共归档和项目内可写缓存；ImageNet100 通过显式配置路径声明，不在 Python 中写死服务器路径。
+- `core/repro.py`：配置 seed 控制 Python、NumPy、PyTorch、CUDA 和 class order；统一单 GPU device 解析。
+- `core/env.py` 与 `core/manifest.py`：记录 Git commit、dirty 状态、环境、CUDA/GPU、配置快照、类顺序、指标容器、运行时间和显存。
+- `run_smoke.py`：完成 CIFAR-100 loader/repro/manifest 最小 smoke test。
 
 ### 通用训练基础设施
 
@@ -72,16 +81,23 @@ IDEA-001“可观测性驱动的漂移补偿”已被 PI 审计评为 `Weak Reje
 - `/root/autodl-pub/ImageNet-mini`
 - `/root/autodl-pub/CUB200-2011`
 
-### 已发现阻塞与风险
+### 已完成的基础设施修复
 
-1. 当前环境为 Python 3.10.8、PyTorch 2.1.2+cu118、torchvision 0.16.2+cu118；`scipy`、`scikit-learn`、`POT`、`quadprog` 缺失，部分方法无法运行。
-2. `utils/data.py` 的 ImageNet 路径仍是 `[DATA-PATH]` 占位符。
-3. `trainer.py` 将随机种子固定为 1，没有实际使用配置中的 seed；当前多 seed 声明不等于多 seed 可复现。
-4. 多个旧方法把超参数硬编码在 Python 文件中，JSON 不能完整控制实验。
-5. 部分代码直接调用 `.cuda()`，设备选择不完全统一。
-6. 多个配置默认 4 GPU，但当前服务器只有 1 GPU。
-7. 没有统一的结构化结果文件、运行 manifest、环境锁定文件或 baseline 回归测试。
-8. README 的历史依赖版本与当前运行环境差异很大，尚未验证兼容性。
+1. 当前环境为 Python 3.10.8、PyTorch 2.1.2+cu118、torchvision 0.16.2+cu118；已安装并锁定 `scipy==1.11.4`、`scikit-learn==1.3.2`、`POT==0.9.5`、`quadprog==0.1.12`。
+2. `experiment_base/` 已支持 CIFAR-100 公共归档读取与项目内可写缓存抽取；ImageNet100 路径由配置显式声明。
+3. `experiment_base/` 已实现配置 seed 到 Python、NumPy、PyTorch、CUDA 和 class order 的统一控制。
+4. `experiment_base/` 已实现结构化 manifest，记录 commit、配置、环境、类顺序、指标容器、运行时间和显存。
+5. `BASE-001` smoke test 已在 clean commit `fb1c38d` 通过：CIFAR-100 train=50000、test=10000、classes=100；same seed 可复现，different seed 改变类顺序。
+
+### 仍存在的阻塞与风险
+
+1. PyCIL 原始 `utils/data.py` 的 ImageNet 路径仍是 `[DATA-PATH]` 占位符；底座已经避免写死路径，但 PyCIL legacy 代码尚未全面迁移。
+2. PyCIL 原始 `trainer.py` 将随机种子固定为 1，没有实际使用配置中的 seed；底座已修复，但 legacy trainer 未改。
+3. 多个旧方法把超参数硬编码在 Python 文件中，JSON 不能完整控制实验。
+4. PyCIL 部分代码直接调用 `.cuda()`，设备选择不完全统一；底座路径已避免硬编码 `.cuda()`。
+5. 多个 PyCIL 配置默认 4 GPU，但当前服务器只有 1 GPU。
+6. v1.1 所需 oracle split、A05 medoid/2-center、A03 continuous retention、feature/logit dump 和 semantic class order 尚未实现。
+7. README 的历史依赖版本与当前运行环境差异很大，尚未验证完整 PyCIL 训练兼容性。
 
 这些问题意味着：当前不应直接开始新方法编码，必须先建立可信 baseline。
 
@@ -129,7 +145,7 @@ IDEA-001“可观测性驱动的漂移补偿”已被 PI 审计评为 `Weak Reje
 
 `A07` 从主线降级为 A05 的支撑性诊断：若单 prototype 不充分，再检查 pseudo-feature 是真实旧类流形近似，还是只起分类器正则化作用。
 
-当前已固化 A05 与 A03 的诊断变量、oracle 指标、失败条件和最小实验矩阵，并完成协议 v1.1 修订与 baseline 覆盖映射。v1.1 明确 oracle-fit / oracle-eval / final-audit、A05 primary comparator、sample-budget/capacity matched 对照、A03 continuous retention 主指标、指标族预注册和 Sanity/Screen/Paper gate 三阶段矩阵。下一阶段先做 Sanity 阶段计划和最小实验底座缺口清单；在完成这两步前，不进入新方法设计或完整实验。如果 A05/A03 后续均未被证伪，再回到其余假设重新排序。
+当前已固化 A05 与 A03 的诊断变量、oracle 指标、失败条件和最小实验矩阵，并完成协议 v1.1 修订与 baseline 覆盖映射。v1.1 明确 oracle-fit / oracle-eval / final-audit、A05 primary comparator、sample-budget/capacity matched 对照、A03 continuous retention 主指标、指标族预注册和 Sanity/Screen/Paper gate 三阶段矩阵。`experiment_base/` 已完成 ENV/DATA/REPRO/LOG/BASE-001 的最小可信底座。下一阶段应进入 Sanity 阶段计划和 v1.1 诊断指标落地缺口清单；在完成这些前，不进入新方法设计或完整实验。如果 A05/A03 后续均未被证伪，再回到其余假设重新排序。
 
 baseline 覆盖映射后的执行边界：
 
@@ -156,6 +172,7 @@ baseline 覆盖映射后的执行边界：
 | 2026-06-27 | A05/A03 协议反向审稿结论为 Revise before experiments | v1 阈值偏启发式，oracle split 不足，A03 轨迹覆盖偏窄，矩阵需分阶段 | 已执行 |
 | 2026-06-27 | 修订 A05/A03 诊断协议为 v1.1 | 补齐 oracle split、A05 主比较器、预算匹配、A03 连续 retention、指标预注册和三阶段矩阵 | 已执行 |
 | 2026-06-27 | 完成 PyCIL baseline 覆盖映射 | 明确 SimpleCIL/LwF 可作 Sanity 轨迹，但 v1.1 指标与 Screen 阶段仍需实验底座建设 | 已执行 |
+| 2026-06-27 | 新建 `experiment_base/` 作为可信实验底座 | 保持 PyCIL 原始代码不动；只搬运可用思想和必要配置，先解决环境、数据路径、复现、manifest 和 smoke 验证 | 已执行 |
 
 ## 文档职责
 
