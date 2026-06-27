@@ -24,7 +24,8 @@
 | RESEARCH-001 | 2026-06-25 | `26887c0` | 全项目代码、论文与研究路线审计 | 不适用 | - | 完成 | 未修改 Python；主问题收敛为漂移可观测性 |
 | RESEARCH-002 | 2026-06-25 | `5974a56` | EFCIL 隐含假设挖掘 | 不适用 | - | 完成 | 记录 20 项假设；优先 A01、A05、A07 |
 | RESEARCH-003 | 2026-06-27 | `6021b01` | 近期 cold-start EFCIL 文献补充与假设严格筛选 | 不适用 | - | 完成 | 只保留 A05、A03；A01 降级为控制变量；A07 降级为支撑诊断 |
-| RESEARCH-004 | 2026-06-27 | 待提交 | 固化 A05/A03 诊断协议 | 不适用 | - | 完成 | 明确变量、oracle 指标、失败条件和最小实验矩阵；未写代码 |
+| RESEARCH-004 | 2026-06-27 | `440cd1f` | 固化 A05/A03 诊断协议 | 不适用 | - | 完成 | 明确变量、oracle 指标、失败条件和最小实验矩阵；未写代码 |
+| RESEARCH-005 | 2026-06-27 | 待提交 | PI 级反向审稿 A05/A03 诊断协议 | 不适用 | - | 完成 | 结论 Revise before experiments；指出阈值、oracle split、矩阵和替代解释问题 |
 
 ## 详细记录
 
@@ -120,6 +121,26 @@
   - `A01` 作为 first-task coverage 控制变量，`A07` 作为 A05 支撑诊断。
 - 代码修改：无 Python、JSON、shell 或配置代码修改；仅更新 Markdown。
 - 模型实验：未运行；本条是协议设计，不包含实验结果。
+
+### RESEARCH-005：A05/A03 诊断协议 PI 级反向审稿
+
+- 日期：2026-06-27
+- 审稿对象：`IDEA_POOL.md` 与 `PAPER_OUTLINE.md` 中的 A05/A03 诊断协议 v1。
+- 审稿重点：
+  - 阈值是否武断；
+  - hidden old oracle 是否可能泄露；
+  - 最小实验矩阵是否过大或过小；
+  - 是否遗漏关键替代解释；
+  - A03 的 baseline 轨迹覆盖是否足以支撑 broad claim。
+- 结论：`Revise before experiments`。
+- 主要问题：
+  1. A05/A03 阈值目前是启发式，不能作为最终论文 claim 的唯一依据；
+  2. hidden old data 必须拆分为 oracle-fit、oracle-eval 和 final-audit，否则 oracle probe 会泄露；
+  3. A05 的 `max(kNN, linear probe, multi-center)` 会造成 winner's curse，只能作为 exploratory upper envelope；
+  4. A03 若只覆盖 LwF，主张必须收窄，不能代表所有 current-data proxy 方法；
+  5. 实验矩阵应分为 Sanity、Screen、Paper gate 三阶段。
+- 代码修改：无 Python、JSON、shell 或配置代码修改；仅更新 Markdown。
+- 模型实验：未运行；本条是协议审稿，不包含实验结果。
 
 ## 新实验模板
 

@@ -134,6 +134,33 @@
 
 若筛选通过，论文门矩阵扩展为 CIFAR-100、ImageNet-100、CUB-200，每类顺序至少 3 个 seed，并按需要加入 LDC/ADC/APR/AdaGauss/EFC++ 的公开或复现实验。
 
+## 协议反向审稿结论
+
+当前协议 v1 不能直接进入完整实验，结论是 `Revise before experiments`。
+
+### 对 A05 的影响
+
+- A05 仍是更强候选，但必须避免 oracle probe 泄露。
+- 论文主证据不能使用 `max(kNN, linear probe, multi-center)` 作为唯一主指标；必须预注册 primary comparator，`max` 只作为 exploratory upper envelope。
+- hidden old data 必须拆为 oracle-fit、oracle-eval、final-audit。
+- oracle-current prototype、kNN、linear probe、多中心 oracle 必须 sample-budget matched；否则 gap 可能只是容量或样本优势。
+- 必须同时报告 all-seen classification，而不只报告 old-only oracle。
+
+### 对 A03 的影响
+
+- A03 当前风险高于 A05。若只覆盖 LwF，它只能支持 narrow claim：new-data distillation 的代理信号不可靠。
+- 若要支持 broader current-data proxy claim，需要至少一个 drift-estimation 或 proxy-based 轨迹参与诊断。
+- harmful-update 二值标签只能作为辅助；主证据应使用连续 retention / forgetting。
+- 当前数据指标族必须预注册，不能事后从多个指标中挑选最支持论点的一个。
+
+### 修订后的阶段门
+
+| 阶段 | 目的 | 范围 | 条件 |
+|---|---|---|---|
+| Sanity | 验证环境、日志、oracle split、指标可计算 | CIFAR-100；random + semantic-clustered；1 seed；SimpleCIL/NCM + LwF | 无 oracle 泄露，结果可追溯 |
+| Screen | 判断 A05/A03 是否有稳定信号 | CIFAR-100 + CUB-200；3 类顺序；2 seeds | 至少一个候选满足修订后的支持条件 |
+| Paper gate | 支撑投稿级结论 | CIFAR-100 + ImageNet-100 + CUB-200；3 类顺序；≥3 seeds；加入可复现 drift/proxy 轨迹 | 跨数据集、顺序、seed 稳定 |
+
 ## 支撑性诊断：pseudo-feature 统计正确但流形错误
 
 ### 可能成立的核心主张

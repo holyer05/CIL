@@ -40,16 +40,22 @@
   - 结果：明确 CIFAR-100、ImageNet-100、CUB-200；random/semantic-clustered/semantic-diverse；A01 作为控制变量；A07 作为 A05 支撑诊断；筛选矩阵与论文门矩阵。
   - 证据：`IDEA_POOL.md` 的 `最小实验矩阵`。
 
+- [x] `ASSUME-REVIEW-001` 对 A05/A03 诊断协议做 PI 级反向审稿。
+  - 不设计方法，不写代码。
+  - 结论：`Revise before experiments`。A05 保留但需修订；A03 保留为次候选但需要 baseline 覆盖映射后决定 claim scope。
+  - 证据：`IDEA_POOL.md` 的 `PI Review：A05/A03 诊断协议 v1`。
+
 ## P0：Assumption Mining 下一阶段
 
-- [ ] `ASSUME-REVIEW-001` 对 A05/A03 诊断协议做 PI 级反向审稿。
+- [ ] `ASSUME-PROTOCOL-REV-001` 将 A05/A03 协议修订为 v1.1。
   - 不设计方法，不写代码。
-  - 检查阈值是否武断、oracle 是否泄露、矩阵是否过大或过小、是否遗漏关键替代解释。
-  - 验收：给出 keep / revise / reject 的协议级结论，并更新 `IDEA_POOL.md`。
+  - 必须补齐 oracle-fit / oracle-eval / final-audit 分割、A05 primary comparator、sample-budget/capacity matched 对照、A03 continuous retention 主指标、指标族预注册、三阶段矩阵。
+  - 验收：`IDEA_POOL.md` 和 `PAPER_OUTLINE.md` 中 v1.1 协议可直接作为实验前注册文本。
 
 - [ ] `BASELINE-SCOPE-001` 将现有 PyCIL 方法映射到 A05/A03 最小实验矩阵。
   - 不修改代码，只读配置和方法实现。
   - 明确哪些轨迹可直接运行，哪些需要先修环境/路径/seed，哪些近期方法只能作为后续扩展。
+  - 特别判断 A03 能否支撑 broad current-data proxy claim；若只能覆盖 LwF，则收窄为 new-data distillation proxy claim。
   - 验收：形成 baseline coverage 表，并更新 `PROJECT.md` 与 `TODO.md`。
 
 ## 暂缓或取消

@@ -533,6 +533,97 @@ A03 作为论文主线的最低门槛：
 | 显著性 | bootstrap 95% CI，报告效应量而不只报告 p-value |
 | 关闭条件 | 两个候选均未满足支持条件，则回到 A02/A18/A19 等评测假设，不强行设计方法 |
 
+## 2026-06-27 PI Review：A05/A03 诊断协议 v1
+
+### 总体结论
+
+- 协议级决策：**Revise before experiments**。
+- A05：**保留为主候选，但必须重大修订协议**。它仍是更强的候选，因为问题对象清晰、覆盖面广、oracle 证伪路径直接。
+- A03：**保留为次候选，但当前协议证据链偏脆弱**。如果只用 LwF 轨迹，主张会退化为“LwF 新数据蒸馏不可靠”；若要支撑“当前任务数据不能代理旧任务函数”的广义结论，至少需要一个 drift-estimation 或 proxy-based 轨迹参与诊断，或者主动收窄论文主张。
+- 当前不应直接进入完整实验矩阵；下一步只允许做协议 v1.1 修订和 baseline 覆盖映射。
+
+### 1. 阈值是否武断
+
+当前阈值有实用意义，但作为论文准入门槛仍偏武断：
+
+- A05 的 `5 pp`、`3 pp CI 下界`、`30% 旧类`、`10 pp per-class gap` 没有来自 null distribution、历史 baseline 方差或最小有意义效应量。
+- A03 的 `AUROC ≤ 0.60`、`Spearman |ρ| ≤ 0.20`、`AUROC ≥ 0.75`、`Spearman ≥ 0.50` 是合理启发式，但没有和 class-level 噪声、task-level 方差、harmful-update 先验比例绑定。
+- `harmful-update = accuracy/margin 下降 5 pp` 对少样本类别不稳定；CUB 细粒度类别尤其容易因测试样本数不足产生假阳性。
+
+必须修订：
+
+1. 所有阈值先标记为 screening heuristic，不作为最终论文 claim 的唯一依据。
+2. 在正式实验前预注册 null baseline：随机指标、task age、first-task coverage、old/new semantic distance、current-class density。
+3. A05 主判据必须报告 paired effect size 和 bootstrap CI；单个 pp 阈值只能作关闭开关。
+4. A03 主判据优先使用连续 retention / forgetting，而不是先二值化 harmful-update；harmful-update 只作辅助可视化。
+
+### 2. Oracle 是否泄露
+
+v1 最大风险是 oracle 泄露。当前 `oracle-current-prototype`、`hidden-old kNN`、`hidden-old linear probe`、`multi-center oracle` 都使用隐藏旧类数据，但没有明确 oracle-fit 与 oracle-eval 的分离。
+
+风险点：
+
+- 如果用同一批 hidden old data 训练 linear probe / kNN memory / multi-center，再在同一批数据上评价，A05 的 sufficiency gap 会被系统性放大。
+- 如果反复查看 hidden old 结果来选择 K、归一化方式、语义距离口径或阈值，hidden oracle 会从“评价工具”变成“方法设计信号”。
+- 如果直接用 benchmark test set 拟合 oracle probe，再报告 test accuracy，会违反基本评测纪律，即使这只是诊断实验。
+
+必须修订：
+
+1. hidden old data 划分为 `oracle-fit`、`oracle-eval`、`final-audit` 三部分；所有 oracle probe、multi-center、kNN memory 只能用 `oracle-fit`，主结果报告在 `oracle-eval`，最终确认只看一次 `final-audit`。
+2. A05 的 stale/oracle prototype、kNN、linear probe、多中心 oracle 必须使用相同 oracle-fit 样本预算，避免“单 prototype vs 更大训练集 classifier”的容量混淆。
+3. A03 的指标选择、方向和阈值必须在不查看 `final-audit` 的情况下冻结。
+4. 所有使用 hidden old data 的结果必须明确标注为 analysis-only upper bound，不是 deployable method。
+
+### 3. 实验矩阵是否过大或过小
+
+当前矩阵同时存在两个问题：
+
+- 对尚未修复环境、seed、路径和日志的项目来说，筛选矩阵偏大：CIFAR-100 + CUB-200 × 3 类顺序 × 2 seeds × 2 轨迹，至少 24 条完整 CIL 轨迹，还不含 oracle 特征抽取与 probe。
+- 对论文主张来说，矩阵又偏小：A03 若缺少 LDC/ADC/APR 或等价 drift/proxy 轨迹，只能证明 LwF 类蒸馏问题，不能代表 broader current-data proxy 假设。
+
+必须修订为三阶段：
+
+| 阶段 | 目的 | 最小范围 | 进入下一阶段条件 |
+|---|---|---|---|
+| Sanity | 验证环境、日志、oracle split 和指标是否可计算 | CIFAR-100；random + semantic-clustered；1 seed；SimpleCIL/NCM + LwF | 指标可复现、无 oracle 泄露、结果文件可追溯 |
+| Screen | 判断 A05/A03 是否有稳定信号 | CIFAR-100 + CUB-200；3 类顺序；2 seeds；SimpleCIL/NCM 或 FeTrIL + LwF | 至少一个候选满足修订后的支持条件 |
+| Paper gate | 支撑投稿级结论 | CIFAR-100 + ImageNet-100 + CUB-200；3 类顺序；≥3 seeds；加入可复现的 drift/proxy 轨迹 | 主张跨数据集、顺序、seed 稳定 |
+
+在完成 `BASELINE-SCOPE-001` 前，不能锁定 A03 的 claim scope。
+
+### 4. 遗漏的关键替代解释
+
+当前协议已覆盖部分替代解释，但还不够。必须补充以下审计项：
+
+1. **容量差异解释**：A05 的 linear probe / multi-center oracle 可能只是模型容量更大，而不是证明 single prototype 原理不足。
+2. **样本预算解释**：如果多中心或 probe 使用更多 oracle-fit 样本，gap 可能来自样本数优势。
+3. **old-only vs all-seen 分类口径**：oracle probe 若只在旧类之间分类，会高估其对 CIL all-seen 分类的意义。
+4. **norm drift / calibration / classifier bias**：NCM 失败可能来自尺度、归一化或 old/new prior shift，而非 prototype 表达不足。
+5. **representation collapse**：A05 gap 可能来自 backbone 已经丢失旧类可分性；必须同时报告 oracle feature separability。
+6. **class-order confounding**：semantic-clustered 与 semantic-diverse 的构造可能同时改变 first-task coverage、old/new distance 和任务难度。
+7. **metric selection bias**：A03 指标族太多，若事后选择最能支持论点的指标，会产生多重比较偏差。
+8. **training failure confound**：PyCIL 当前 seed、路径、依赖和 `.cuda()` 风险尚未修复，训练失败可能伪装成假设失效。
+
+### 5. 必须增加的协议修订项
+
+在进入任何正式实验前，协议 v1.1 必须补齐：
+
+1. `oracle-fit / oracle-eval / final-audit` 的分割规则；
+2. A05 的 primary comparator，禁止用 `max(kNN, linear probe, multi-center)` 作为唯一主指标；`max` 只能作 exploratory upper envelope；
+3. A05 的 sample-budget-matched 和 capacity-matched 对照；
+4. A05 的 all-seen classification 口径，不能只看 old-only oracle；
+5. A03 的 primary continuous retention 指标，harmful-update 二值标签降为辅助；
+6. A03 指标族的预注册列表和多重比较处理；
+7. semantic-clustered / semantic-diverse 类顺序的固定构造规则；
+8. Sanity -> Screen -> Paper gate 三阶段矩阵；
+9. baseline coverage 表，用来决定 A03 是 broad current-data proxy claim，还是 narrow LwF/new-data distillation claim。
+
+### 6. 协议级最终判定
+
+- A05：**Revise / Keep**。方向值得保留，但 v1 的 oracle 设计会高估 gap，必须先修订。
+- A03：**Weak Revise**。问题重要，但证据链依赖更多轨迹覆盖；否则容易被 reviewer 质疑为 LwF 个案。
+- 整体：**Revise before running experiments**。当前最安全的下一步不是跑实验，而是完成 `ASSUME-PROTOCOL-REV-001` 和 `BASELINE-SCOPE-001`。
+
 ## 历史记录：上一轮最值得继续研究的三个假设
 
 以下为 2026-06-25 Assumption Mining 的历史结论，已被 2026-06-27 严格筛选替代；保留用于追溯。
