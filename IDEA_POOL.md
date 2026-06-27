@@ -795,6 +795,70 @@ A03 进入 paper gate 必须满足：
 - A01：继续作为 first-task coverage 控制变量。
 - A07：继续作为 A05 后续支撑诊断，不在 Screen 阶段单独展开。
 
+## 2026-06-27 BASELINE-SCOPE-001：PyCIL baseline 覆盖映射
+
+本节只基于只读代码和配置审计，不运行训练、不修改代码。
+
+### 代码与环境事实
+
+- PyCIL 已实现并注册 `simplecil`、`fetril`、`lwf`，三者分别位于 `models/simplecil.py`、`models/fetril.py`、`models/lwf.py`。
+- 现有配置位于 `exps/simplecil.json`、`exps/fetril.json`、`exps/lwf.json`。
+- 当前环境缺失 `scipy`、`sklearn`、`POT/ot`、`quadprog`。由于 `models/base.py` 顶层导入 `scipy.spatial.distance.cdist`，即使 SimpleCIL/LwF 本身不显式用 NME，也会被 `scipy` 缺失阻塞。
+- 代码只内建 `cifar100`、`imagenet100`、`imagenet1000`、`cifar10`。CUB-200 数据目录存在，但 PyCIL 无 CUB dataset class。
+- `iImageNet100.download_data()` 仍有 `assert 0` 和 `[DATA-PATH]` 占位符；ImageNet-100 不能直接运行。
+- `trainer._set_random()` 固定为 seed 1；配置中的 `seed` 主要影响 DataManager 的随机类顺序，不完整控制训练随机性。
+- DataManager 支持 `shuffle=True` 随机类顺序和 `shuffle=False` 默认顺序，但不支持显式传入 semantic-clustered / semantic-diverse class order。
+- 现有日志只记录 grouped accuracy、average accuracy、forgetting；不保存任务级 features、logits、oracle split、margin retention 或 A05 medoid/multi-center 结果。
+
+### v1.1 Sanity 阶段 baseline 覆盖
+
+| 需求 | 现有覆盖 | 状态 | 结论 |
+|---|---|---|---|
+| CIFAR-100 数据集 | `iCIFAR100` 自动从 `./data` 下载/读取 | 可用但需确认数据路径 | 可作为 Sanity 唯一直接数据集 |
+| random class order | `shuffle=True` + config seed | 部分可用 | seed 只控制类顺序，不完整控制训练随机性 |
+| semantic-clustered order | 无显式 class order 输入 | 不可直接支持 | 需要协议层先定义类别顺序，再决定是否允许配置/代码变更 |
+| SimpleCIL/NCM 轨迹 | `models/simplecil.py` + `exps/simplecil.json` | 部分可用 | 最适合作 A05 prototype-centric 轨迹，但现有 config 是 base 50 + inc 10，不符合 v1.1 base 10 |
+| LwF 轨迹 | `models/lwf.py` + `exps/lwf.json` | 部分可用 | 最适合作 A03 new-data distillation 轨迹；config base 10 + inc 10，但 device 默认 4 GPU，且 memory 字段非 0 但代码未使用 exemplar memory |
+| oracle-fit/eval/final-audit | 无现成机制 | 不支持 | v1.1 诊断指标不能由现有日志直接产生 |
+| A05 mean vs medoid / 2-center | 无现成计算或日志 | 不支持 | 需要后续诊断脚本或日志扩展；当前不能跑正式 A05 |
+| A03 margin retention | 无 logits/features dump | 不支持 | 需要后续诊断脚本或日志扩展；当前不能跑正式 A03 |
+
+### v1.1 Screen 阶段 baseline 覆盖
+
+| 需求 | 现有覆盖 | 状态 | 结论 |
+|---|---|---|---|
+| CIFAR-100 + CUB-200 | 仅 CIFAR-100 代码可用；CUB 只有数据目录 | 不满足 | Screen 不能直接执行 |
+| 3 类顺序 | 仅 random/default | 不满足 | semantic 顺序缺口会阻塞 Screen |
+| 2 seeds | config 支持 seed list | 部分可用 | 类顺序可变，但训练随机性仍被固定为 1 |
+| FeTrIL 轨迹 | `models/fetril.py` 存在 | 当前不可直接用 | 依赖 `sklearn`，config base 40 + inc 1；实现强制 CIFAR 增强，跨数据集风险高 |
+| LwF 轨迹 | 存在 | 部分可用 | 可支撑 narrow A03，但不能单独支撑 broad current-data proxy claim |
+| drift/proxy 轨迹 | 本地未实现 LDC/ADC/APR/AdaGauss/EFC++ | 不支持 | A03 broad claim 当前不成立 |
+
+### 方法级覆盖表
+
+| 方法 | 与 A05 的关系 | 与 A03 的关系 | 当前可用性 | 用途判断 |
+|---|---|---|---|---|
+| SimpleCIL | 直接 prototype-centric；旧类 prototype 保持为历史 fc weight，新类用当前训练特征均值替换 | 不涉及 distillation/proxy | 需 scipy；需 v1.1 config；硬编码 `.cuda()` 但单 GPU 可接受 | Sanity 首选 A05 轨迹来源 |
+| FeTrIL | prototype/feature-translation 路线，适合 Screen 扩展 | 间接涉及旧类 feature translation | 需 scipy + sklearn；config 与 v1.1 不符；实现偏 CIFAR | Screen 候选，不适合作 Sanity 首选 |
+| LwF | 不直接支持 A05 | 直接 new-data distillation；保存 `_old_network` | 需 scipy；config 需改单 GPU和确认 memory 字段无效 | Sanity 首选 A03 轨迹来源，但 claim 只能 narrow |
+| PASS/IL2A/SSRE | prototype/pseudo-feature/feature distillation 路线 | 有 current-data + old-network 信号 | 需依赖和更多审计；config base 50 | 后续扩展，不进入 Sanity |
+| ACIL/DS-AL | analytic / no-exemplar 路线 | 不直接是 current-data proxy | 需单独审计 analytic buffer 与预训练假设 | 不支撑 v1.1 Sanity 主问题 |
+
+### 对 A03 claim scope 的判定
+
+当前 PyCIL 可直接审计的 A03 轨迹主要是 LwF。因此：
+
+- 在不引入 LDC/ADC/APR/AdaGauss/EFC++ 或等价 drift/proxy 轨迹前，A03 不能写成 broad current-data proxy claim。
+- 当前可成立的收窄主张是：**new-data distillation signals in LwF-style exemplar-free CIL may fail to predict hidden-old functional retention**。
+- 若后续只跑 LwF，A03 应作为支撑性诊断或 narrow paper angle，而不是覆盖 drift compensation / adversarial proxy 的总主线。
+
+### BASELINE-SCOPE-001 结论
+
+- `直接可支撑 Sanity 轨迹选择`：SimpleCIL for A05，LwF for A03。
+- `不能直接支撑 v1.1 指标`：oracle split、A05 medoid/2-center、A03 continuous retention 都不是现成输出。
+- `不能直接支撑 Screen`：CUB、semantic class order、FeTrIL 依赖、完整 seed 控制和 structured logging 均未满足。
+- `当前下一步`：先做 `SANITY-PLAN-001`，明确不改代码情况下哪些命令和配置可用于环境/日志干跑规划；若要真正计算 v1.1 指标，必须另开授权进入实验底座建设，而不是直接训练。
+
 ## 历史记录：上一轮最值得继续研究的三个假设
 
 以下为 2026-06-25 Assumption Mining 的历史结论，已被 2026-06-27 严格筛选替代；保留用于追溯。

@@ -22,7 +22,7 @@ IDEA-001“可观测性驱动的漂移补偿”已被 PI 审计评为 `Weak Reje
 
 ## 当前阶段
 
-- 阶段：Assumption Mining Mode；完成 20 项领域隐含假设审计，并在 2026-06-27 严格筛选为 2 个活跃候选；A05/A03 诊断协议已修订为 v1.1；尚未选定论文主线，禁止方法编码。
+- 阶段：Assumption Mining Mode；完成 20 项领域隐含假设审计，并在 2026-06-27 严格筛选为 2 个活跃候选；A05/A03 诊断协议已修订为 v1.1，并完成 PyCIL baseline 覆盖映射；尚未选定论文主线，禁止方法编码。
 - 代码基线：`PyCIL/`，当前没有项目自研算法实现。
 - 默认分支：`main`
 - 远端仓库：`holyer05/CIL`
@@ -129,7 +129,14 @@ IDEA-001“可观测性驱动的漂移补偿”已被 PI 审计评为 `Weak Reje
 
 `A07` 从主线降级为 A05 的支撑性诊断：若单 prototype 不充分，再检查 pseudo-feature 是真实旧类流形近似，还是只起分类器正则化作用。
 
-当前已固化 A05 与 A03 的诊断变量、oracle 指标、失败条件和最小实验矩阵，并完成协议 v1.1 修订。v1.1 明确 oracle-fit / oracle-eval / final-audit、A05 primary comparator、sample-budget/capacity matched 对照、A03 continuous retention 主指标、指标族预注册和 Sanity/Screen/Paper gate 三阶段矩阵。下一阶段先做 baseline 覆盖映射和 Sanity 阶段计划；在完成这两步前，不进入新方法设计或完整实验。如果 A05/A03 后续均未被证伪，再回到其余假设重新排序。
+当前已固化 A05 与 A03 的诊断变量、oracle 指标、失败条件和最小实验矩阵，并完成协议 v1.1 修订与 baseline 覆盖映射。v1.1 明确 oracle-fit / oracle-eval / final-audit、A05 primary comparator、sample-budget/capacity matched 对照、A03 continuous retention 主指标、指标族预注册和 Sanity/Screen/Paper gate 三阶段矩阵。下一阶段先做 Sanity 阶段计划和最小实验底座缺口清单；在完成这两步前，不进入新方法设计或完整实验。如果 A05/A03 后续均未被证伪，再回到其余假设重新排序。
+
+baseline 覆盖映射后的执行边界：
+
+- SimpleCIL 是 A05 Sanity 的首选轨迹来源；LwF 是 A03 Sanity 的首选轨迹来源。
+- 现有 PyCIL 不能直接产出 v1.1 所需 oracle split、A05 medoid/2-center、A03 continuous retention 和指标族预注册结果。
+- CUB-200、ImageNet-100、semantic class order、完整 seed 控制和 structured logging 都不是当前代码可直接支持的能力。
+- A03 在当前 baseline 覆盖下只能支撑 narrow LwF/new-data distillation claim，不能支撑 broad current-data proxy claim。
 
 ## 关键决策
 
@@ -148,6 +155,7 @@ IDEA-001“可观测性驱动的漂移补偿”已被 PI 审计评为 `Weak Reje
 | 2026-06-27 | 固化 A05/A03 诊断协议 v1 | 先定义变量、oracle 指标、失败条件和最小实验矩阵，避免直接滑向方法设计 | 已执行 |
 | 2026-06-27 | A05/A03 协议反向审稿结论为 Revise before experiments | v1 阈值偏启发式，oracle split 不足，A03 轨迹覆盖偏窄，矩阵需分阶段 | 已执行 |
 | 2026-06-27 | 修订 A05/A03 诊断协议为 v1.1 | 补齐 oracle split、A05 主比较器、预算匹配、A03 连续 retention、指标预注册和三阶段矩阵 | 已执行 |
+| 2026-06-27 | 完成 PyCIL baseline 覆盖映射 | 明确 SimpleCIL/LwF 可作 Sanity 轨迹，但 v1.1 指标与 Screen 阶段仍需实验底座建设 | 已执行 |
 
 ## 文档职责
 

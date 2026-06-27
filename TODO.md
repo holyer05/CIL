@@ -52,16 +52,20 @@
 
 ## P0：Assumption Mining 下一阶段
 
-- [ ] `BASELINE-SCOPE-001` 将现有 PyCIL 方法映射到 A05/A03 最小实验矩阵。
+- [x] `BASELINE-SCOPE-001` 将现有 PyCIL 方法映射到 A05/A03 最小实验矩阵。
   - 不修改代码，只读配置和方法实现。
-  - 明确哪些轨迹可直接运行，哪些需要先修环境/路径/seed，哪些近期方法只能作为后续扩展。
-  - 特别判断 A03 能否支撑 broad current-data proxy claim；若只能覆盖 LwF，则收窄为 new-data distillation proxy claim。
-  - 验收：形成 baseline coverage 表，并更新 `PROJECT.md` 与 `TODO.md`。
+  - 结果：SimpleCIL 可作 A05 Sanity 轨迹来源；LwF 可作 A03 Sanity 轨迹来源；FeTrIL 可作 Screen 候选但当前依赖和配置不满足；A03 只能 narrow 到 LwF/new-data distillation。
+  - 证据：`IDEA_POOL.md` 的 `BASELINE-SCOPE-001：PyCIL baseline 覆盖映射`。
 
 - [ ] `SANITY-PLAN-001` 制定 v1.1 Sanity 阶段运行计划。
   - 不写代码，不启动训练。
   - 明确 CIFAR-100 上 random + semantic-clustered、1 seed、SimpleCIL/NCM + LwF 的配置来源、预计产物、oracle split 文件口径和日志字段。
   - 验收：形成可执行但尚未执行的 sanity checklist。
+
+- [ ] `INFRA-GAP-001` 列出 v1.1 指标落地前的最小实验底座缺口。
+  - 不写代码。
+  - 覆盖依赖、CIFAR 数据路径、semantic class order、oracle split、feature/logit dump、structured manifest、seed 控制。
+  - 验收：明确哪些属于配置/依赖问题，哪些必须修改 Python，等待用户授权后再执行。
 
 ## 暂缓或取消
 

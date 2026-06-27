@@ -26,7 +26,8 @@
 | RESEARCH-003 | 2026-06-27 | `6021b01` | 近期 cold-start EFCIL 文献补充与假设严格筛选 | 不适用 | - | 完成 | 只保留 A05、A03；A01 降级为控制变量；A07 降级为支撑诊断 |
 | RESEARCH-004 | 2026-06-27 | `440cd1f` | 固化 A05/A03 诊断协议 | 不适用 | - | 完成 | 明确变量、oracle 指标、失败条件和最小实验矩阵；未写代码 |
 | RESEARCH-005 | 2026-06-27 | `e4cf3e6` | PI 级反向审稿 A05/A03 诊断协议 | 不适用 | - | 完成 | 结论 Revise before experiments；指出阈值、oracle split、矩阵和替代解释问题 |
-| RESEARCH-006 | 2026-06-27 | 待提交 | 修订 A05/A03 诊断协议 v1.1 | 不适用 | - | 完成 | 补齐 oracle split、A05 主比较器、预算匹配、A03 连续 retention、指标预注册、三阶段矩阵 |
+| RESEARCH-006 | 2026-06-27 | `c927e4a` | 修订 A05/A03 诊断协议 v1.1 | 不适用 | - | 完成 | 补齐 oracle split、A05 主比较器、预算匹配、A03 连续 retention、指标预注册、三阶段矩阵 |
+| RESEARCH-007 | 2026-06-27 | 待提交 | PyCIL baseline 覆盖映射 | 不适用 | - | 完成 | SimpleCIL/LwF 可作 Sanity 轨迹；v1.1 指标和 Screen 阶段不能直接支持 |
 
 ## 详细记录
 
@@ -159,6 +160,31 @@
   - A03 的 broad claim 必须等待 `BASELINE-SCOPE-001` 后决定。
 - 代码修改：无 Python、JSON、shell 或配置代码修改；仅更新 Markdown。
 - 模型实验：未运行；本条是协议修订，不包含实验结果。
+
+### RESEARCH-007：BASELINE-SCOPE-001 PyCIL baseline 覆盖映射
+
+- 日期：2026-06-27
+- 操作范围：
+  - 只读检查 `PyCIL/exps/simplecil.json`、`PyCIL/exps/fetril.json`、`PyCIL/exps/lwf.json`；
+  - 只读检查 `PyCIL/models/simplecil.py`、`PyCIL/models/fetril.py`、`PyCIL/models/lwf.py`、`PyCIL/models/base.py`；
+  - 只读检查 `PyCIL/trainer.py`、`PyCIL/utils/data_manager.py`、`PyCIL/utils/data.py`、`PyCIL/utils/factory.py`；
+  - 核对当前 Python 依赖和 `/root/autodl-pub` 数据目录。
+- 代码事实：
+  - `simplecil`、`fetril`、`lwf` 已实现并在 factory 注册；
+  - 当前环境缺失 `scipy`、`sklearn`、`ot`、`quadprog`；
+  - `models/base.py` 顶层导入 `scipy`，会阻塞当前直接运行；
+  - CUB-200 数据目录存在，但 PyCIL 无 CUB dataset class；
+  - ImageNet100 数据目录存在，但 `utils/data.py` 中 `iImageNet100.download_data()` 仍 assert；
+  - DataManager 不支持显式 semantic class order；
+  - 现有日志不保存 v1.1 所需 logits/features/oracle split/continuous retention。
+- 覆盖结论：
+  - A05 Sanity 首选轨迹：SimpleCIL；
+  - A03 Sanity 首选轨迹：LwF；
+  - FeTrIL 可作为 Screen 候选，但当前 sklearn 缺失且 config/实现不匹配 v1.1；
+  - A03 当前只能支撑 narrow LwF/new-data distillation claim，不能支撑 broad current-data proxy claim；
+  - v1.1 正式指标需要后续实验底座建设，不应直接跑训练。
+- 代码修改：无 Python、JSON、shell 或配置代码修改；仅更新 Markdown。
+- 模型实验：未运行；本条是只读 baseline 映射，不包含实验结果。
 
 ## 新实验模板
 
