@@ -25,9 +25,11 @@ venv/
 # Datasets and generated training artifacts
 data/
 datasets/
+experiment_base/data/
 checkpoints/
 outputs/
 runs/
+experiment_base/runs/
 wandb/
 logs/
 *.pt

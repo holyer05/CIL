@@ -1,0 +1,11 @@
+{
+  "cifar100": {
+    "root": "experiment_base/data/cifar-100",
+    "archive": "/root/autodl-pub/cifar-100/cifar-100-python.tar.gz",
+    "download": false
+  },
+  "imagenet100": {
+    "train_dir": "/root/autodl-pub/ImageNet100/train",
+    "val_dir": "/root/autodl-pub/ImageNet100/val"
+  }
+}
