@@ -1,6 +1,6 @@
 # TODO.md
 
-> 当前可执行任务列表。任务必须包含验收条件。最后更新：2026-06-25。
+> 当前可执行任务列表。任务必须包含验收条件。最后更新：2026-06-27。
 
 ## 已完成
 
@@ -23,28 +23,30 @@
   - 结果：记录 20 项可证伪假设，优先级为 A01、A05、A07。
   - 证据：`IDEA_POOL.md` 的 `ASSUMPTION-MINING-001`。
 
-## P0：Assumption Mining 下一阶段
+- [x] `ASSUME-SCREEN-001` 完成 20 项假设的严格筛选。
+  - 评分维度：新颖性、可证伪性、实验成本、与现有工作的区分度、发展成方法的潜力。
+  - 结果：仅保留 A05、A03 为活跃研究候选；A01 降级为 cold-start 控制变量；A07 降级为 A05 支撑诊断。
+  - 证据：`IDEA_POOL.md` 的 `2026-06-27 严格筛选`。
 
-- [ ] `ASSUME-DIAG-001` 固化 A01 第一任务表示覆盖诊断。
-  - 只定义变量、数据切分、oracle 指标和失败标准，不提出方法。
-  - 必须区分第一任务类别数、语义覆盖、视觉域覆盖和随机顺序。
-  - 验收：能够判断 base coverage 对最终性能的解释量是否超过方法增益。
+## P0：Assumption Mining 下一阶段
 
 - [ ] `ASSUME-DIAG-002` 固化 A05 prototype sufficiency 诊断。
   - 比较 stale prototype、oracle current prototype、hidden-old linear probe、kNN 和多中心 oracle。
   - 必须按 coarse/fine-grained、类内散度和多模态度分组。
   - 验收：明确 prototype 误差与 representation 误差的可观测分界。
 
-- [ ] `ASSUME-DIAG-003` 固化 A07 pseudo-feature fidelity 诊断。
-  - 定义真实/伪特征二样本可分性、最近邻纯度、分布 precision/recall、边界覆盖和跨分布泛化。
-  - 旧类真实特征只能作为隐藏评价，不参与 pseudo-feature 生成或调参。
-  - 验收：能够区分“伪特征真实”“伪特征仅有正则化作用”和“伪特征有害”。
+- [ ] `ASSUME-DIAG-004` 固化 A03 current-data proxy 诊断。
+  - 比较新类数据上的 teacher-student 一致性、漂移拟合误差、代理距离与隐藏旧类函数保持之间的关系。
+  - 必须按新旧类语义距离、cold-start 程度、任务粒度和当前数据支持度分层。
+  - 验收：能够判断当前任务数据是否能预测或约束旧任务函数保持，以及 ADC/APR 类代理是否真正弥补代理缺口。
 
 - [ ] `ASSUME-PROTOCOL-001` 固化共同诊断协议。
   - 数据集至少覆盖 CIFAR-100、ImageNet-100、CUB-200。
   - 类顺序必须包含随机、语义集中和语义分散三类。
   - 指标除 `A_inc`、`A_last` 外，必须包含 per-class trajectory、old/new accuracy、oracle probes 和置信区间。
-  - 验收：三项诊断共享同一数据划分、模型快照和日志口径。
+  - A01 first-task coverage 作为所有诊断的控制变量，必须记录并分层报告，但不作为独立主线。
+  - A07 pseudo-feature fidelity 作为 A05 的支撑诊断，只有 A05 初步成立后再展开。
+  - 验收：A05 与 A03 共享同一数据划分、模型快照和日志口径。
 
 ## 暂缓或取消
 
@@ -59,6 +61,14 @@
 - [ ] `METHOD-GATE-001` IDEA-001 方法准入。
   - 状态：`取消当前排期`。
   - 原因：尚未选择任何方法主线。
+
+- [ ] `ASSUME-DIAG-001` A01 第一任务表示覆盖诊断。
+  - 状态：`降级为控制变量`。
+  - 原因：近期 cold-start EFCIL 工作已经显式关注 small first task / first-task-biased backbone；独立作为主线的新颖性不足。
+
+- [ ] `ASSUME-DIAG-003` A07 pseudo-feature fidelity 诊断。
+  - 状态：`降级为 A05 支撑诊断`。
+  - 原因：与 A05/A06 强耦合，且需要覆盖多种 pseudo-feature 方法，当前实验成本高于 A03/A05。
 
 ## P1：建立可信实验底座
 
@@ -88,7 +98,8 @@
 ## P2：论文主线选择门
 
 - [ ] `ASSUME-GATE-001` 根据 A01、A05、A07 诊断结果选择或放弃论文主线。
-  - 至少一个假设必须在多数据集、多顺序下被稳定证伪。
+  - 更新：根据 2026-06-27 筛选，主门槛改为 A05 与 A03。
+  - 至少一个活跃候选必须在多数据集、多顺序下被稳定证伪。
   - 证伪结果必须改变对现有方法或 benchmark 结论的解释，而不只是报告一个相关性。
   - 若三项均无稳定证据，回到 A02-A20 重新排序，不强行设计算法。
 - [ ] `PAPER-GATE-001` 只有在 `ASSUME-GATE-001` 通过后，才允许确定题目、摘要主张和后续方法需求。

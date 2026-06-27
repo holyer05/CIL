@@ -1,6 +1,6 @@
 # EXPERIMENT_LOG.md
 
-> 实验与研究审计事实日志。只追加或更正有证据的错误，不删除失败记录。最后更新：2026-06-25。
+> 实验与研究审计事实日志。只追加或更正有证据的错误，不删除失败记录。最后更新：2026-06-27。
 
 ## 记录规范
 
@@ -23,6 +23,7 @@
 | SETUP-002 | 2026-06-25 | `e112fd0` | 初始化持续维护的科研 workspace 文档 | 不适用 | - | 完成 | 建立五份状态文档 |
 | RESEARCH-001 | 2026-06-25 | `26887c0` | 全项目代码、论文与研究路线审计 | 不适用 | - | 完成 | 未修改 Python；主问题收敛为漂移可观测性 |
 | RESEARCH-002 | 2026-06-25 | `5974a56` | EFCIL 隐含假设挖掘 | 不适用 | - | 完成 | 记录 20 项假设；优先 A01、A05、A07 |
+| RESEARCH-003 | 2026-06-27 | 待提交 | 近期 cold-start EFCIL 文献补充与假设严格筛选 | 不适用 | - | 完成 | 只保留 A05、A03；A01 降级为控制变量；A07 降级为支撑诊断 |
 
 ## 详细记录
 
@@ -86,6 +87,23 @@
   - 下一阶段只能固化诊断协议，不能进入方法开发。
 - 代码修改：无 Python、JSON、shell 或配置代码修改；仅更新 workspace Markdown。
 - 模型实验：未运行；本条是研究审计，不包含实验结论。
+
+### RESEARCH-003：近期 cold-start 文献补充与假设严格筛选
+
+- 日期：2026-06-27
+- 操作范围：
+  - 使用公开论文页面补充核查 2024--2026 年 EFCIL / cold-start 相关工作；
+  - 重点复核 EFC、EFC++、ADC、LDC、AdaGauss、APR、BiCyc、CIRCLE 对 first-task coverage、drift compensation、prototype/covariance、pseudo-replay 和 long-horizon cold-start 的覆盖；
+  - 对 A01--A20 按新颖性、可证伪性、实验成本、与现有工作的区分度、发展成方法的潜力五项评分。
+- 主要事实：
+  - 近期 EFC/EFC++、ADC、LDC、APR、CIRCLE 等工作已经显式讨论 cold start、small first task 或 first-task-biased backbone，因此 A01 作为独立主线的新颖性不足；
+  - prototype、Gaussian/covariance、pseudo-feature 和 current-data proxy 仍是多条路线共同依赖但未充分证伪的基础。
+- 筛选结果：
+  - 活跃研究候选：`A05` 单 prototype 是否足以代表旧类；`A03` 当前任务数据是否能代理旧任务函数；
+  - `A01` 降级为 cold-start 控制变量；
+  - `A07` 降级为 A05 的支撑性诊断。
+- 代码修改：无 Python、JSON、shell 或配置代码修改；仅计划更新 workspace Markdown。
+- 模型实验：未运行；本条是研究审计，不包含实验结果。
 
 ## 新实验模板
 
