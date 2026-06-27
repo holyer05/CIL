@@ -28,25 +28,29 @@
   - 结果：仅保留 A05、A03 为活跃研究候选；A01 降级为 cold-start 控制变量；A07 降级为 A05 支撑诊断。
   - 证据：`IDEA_POOL.md` 的 `2026-06-27 严格筛选`。
 
+- [x] `ASSUME-DIAG-002` 固化 A05 prototype sufficiency 诊断协议。
+  - 范围：变量、oracle 对照、主指标、支持条件、拒绝条件和不能作为证据的结果。
+  - 证据：`IDEA_POOL.md` 的 `A05 诊断协议` 与 `PAPER_OUTLINE.md` 的 `A05/A03 共同诊断协议 v1`。
+
+- [x] `ASSUME-DIAG-004` 固化 A03 current-data proxy 诊断协议。
+  - 范围：当前数据可观测指标、隐藏 oracle 指标、预测性判据、支持条件、拒绝条件和分层解释。
+  - 证据：`IDEA_POOL.md` 的 `A03 诊断协议` 与 `PAPER_OUTLINE.md` 的 `A05/A03 共同诊断协议 v1`。
+
+- [x] `ASSUME-PROTOCOL-001` 固化共同诊断协议。
+  - 结果：明确 CIFAR-100、ImageNet-100、CUB-200；random/semantic-clustered/semantic-diverse；A01 作为控制变量；A07 作为 A05 支撑诊断；筛选矩阵与论文门矩阵。
+  - 证据：`IDEA_POOL.md` 的 `最小实验矩阵`。
+
 ## P0：Assumption Mining 下一阶段
 
-- [ ] `ASSUME-DIAG-002` 固化 A05 prototype sufficiency 诊断。
-  - 比较 stale prototype、oracle current prototype、hidden-old linear probe、kNN 和多中心 oracle。
-  - 必须按 coarse/fine-grained、类内散度和多模态度分组。
-  - 验收：明确 prototype 误差与 representation 误差的可观测分界。
+- [ ] `ASSUME-REVIEW-001` 对 A05/A03 诊断协议做 PI 级反向审稿。
+  - 不设计方法，不写代码。
+  - 检查阈值是否武断、oracle 是否泄露、矩阵是否过大或过小、是否遗漏关键替代解释。
+  - 验收：给出 keep / revise / reject 的协议级结论，并更新 `IDEA_POOL.md`。
 
-- [ ] `ASSUME-DIAG-004` 固化 A03 current-data proxy 诊断。
-  - 比较新类数据上的 teacher-student 一致性、漂移拟合误差、代理距离与隐藏旧类函数保持之间的关系。
-  - 必须按新旧类语义距离、cold-start 程度、任务粒度和当前数据支持度分层。
-  - 验收：能够判断当前任务数据是否能预测或约束旧任务函数保持，以及 ADC/APR 类代理是否真正弥补代理缺口。
-
-- [ ] `ASSUME-PROTOCOL-001` 固化共同诊断协议。
-  - 数据集至少覆盖 CIFAR-100、ImageNet-100、CUB-200。
-  - 类顺序必须包含随机、语义集中和语义分散三类。
-  - 指标除 `A_inc`、`A_last` 外，必须包含 per-class trajectory、old/new accuracy、oracle probes 和置信区间。
-  - A01 first-task coverage 作为所有诊断的控制变量，必须记录并分层报告，但不作为独立主线。
-  - A07 pseudo-feature fidelity 作为 A05 的支撑诊断，只有 A05 初步成立后再展开。
-  - 验收：A05 与 A03 共享同一数据划分、模型快照和日志口径。
+- [ ] `BASELINE-SCOPE-001` 将现有 PyCIL 方法映射到 A05/A03 最小实验矩阵。
+  - 不修改代码，只读配置和方法实现。
+  - 明确哪些轨迹可直接运行，哪些需要先修环境/路径/seed，哪些近期方法只能作为后续扩展。
+  - 验收：形成 baseline coverage 表，并更新 `PROJECT.md` 与 `TODO.md`。
 
 ## 暂缓或取消
 

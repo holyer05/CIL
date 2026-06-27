@@ -345,6 +345,194 @@
 - `A01`：作为 cold-start 协议变量保留。必须在所有诊断中分层报告 first-task coverage、first-task 类组成和未来类 frozen probe，但不再作为主线。
 - `A07`：作为 A05 的支撑诊断保留。若 A05 成立，再检查 pseudo-feature 是真实流形近似还是仅起分类器正则化作用；当前不单独立项，原因是实现成本较高且与 A05/A06 强耦合。
 
+## 2026-06-27 诊断协议 v1：A05 与 A03
+
+本协议只定义诊断变量、oracle 指标、失败条件和最小实验矩阵；不提出新 Loss、新模块、新网络或新训练方法。旧类数据只允许作为隐藏 oracle 评价，不允许进入训练、阈值选择、超参数调节或方法设计。
+
+### 共同实验对象与控制变量
+
+**任务对象**
+
+- 数据集：CIFAR-100、ImageNet-100、CUB-200。
+- 协议：cold-start exemplar-free CIL；不保存旧类图像作为 replay。
+- 任务划分：
+  - CIFAR-100：base 10 classes，之后每步 10 classes；
+  - ImageNet-100：base 10 classes，之后每步 10 classes；
+  - CUB-200：base 20 classes，之后每步 20 classes。
+- 类顺序：每个数据集至少三类顺序：
+  1. random order；
+  2. semantic-clustered / low-coverage first task；
+  3. semantic-diverse / high-coverage first task。
+- 随机性：筛选阶段每类顺序至少 2 个 seed；若进入论文主张，至少 3 个 seed。
+- backbone、训练 epoch、增强、学习率和 batch size 在同一数据集内固定；不允许因假设方向单独调参。
+
+**诊断轨迹来源**
+
+- 必须包含一个 prototype-centric 轨迹：SimpleCIL/NCM 或 FeTrIL。
+- 必须包含一个 current-data distillation 轨迹：LwF。
+- 若后续获得可靠实现，可扩展到 LDC、ADC、APR、AdaGauss 或 EFC++，但这不是本轮协议固化的前置条件。
+- 所有轨迹只作为现有方法或 baseline 的观测来源，不把诊断结果反向改造成新方法。
+
+**必须保存或可重算的观测量**
+
+- 每个任务结束后的模型快照或可复现特征抽取状态。
+- 已见类的 stale prototype / class mean。
+- 当前任务训练样本在旧模型和新模型下的 logits、features、teacher entropy、margin。
+- 隐藏旧类样本在旧模型和新模型下的 logits、features、accuracy、confusion。
+- 当前任务与旧类之间的语义距离、特征距离、task age、first-task coverage 指标。
+- 每个任务的 per-class accuracy、old/new accuracy、balanced accuracy、A_inc、A_last、forgetting。
+
+### A05 诊断协议：单 prototype 是否足以代表旧类
+
+**核心问题**
+
+即使真实旧类样本只作为隐藏 oracle 评价使用，如果可以在当前模型上重新计算旧类 oracle prototype，单均值 NCM 是否仍明显落后于更丰富但同样 oracle 的旧类表示？
+
+**自变量**
+
+- 数据粒度：coarse-grained CIFAR-100、medium ImageNet-100、fine-grained CUB-200。
+- 类顺序：random、semantic-clustered、semantic-diverse。
+- 旧类 age：旧类距离当前任务的步数。
+- 类内结构：类内散度、协方差谱有效秩、多模态度、prototype density、hubness、类间最近邻 margin。
+- 表示来源：不同 baseline 轨迹的同一任务模型。
+- 几何口径：raw feature、L2-normalized feature；是否做 whitening 只作为 oracle 分析，不作为方法。
+
+**oracle 对照**
+
+- `stale-prototype NCM`：部署可用旧 prototype，代表现有 prototype 估计。
+- `oracle-current-prototype NCM`：用隐藏旧类样本在当前模型中重算单均值；只用于评价单 prototype 上限。
+- `hidden-old kNN`：在隐藏旧类当前特征上做 kNN oracle，衡量非参数局部结构上限。
+- `hidden-old linear probe`：冻结当前 backbone，用隐藏旧类特征训练线性分类器；衡量线性可分上限。
+- `multi-center oracle`：每类 K 个中心，K 取 2、4、8；衡量多模态表示上限。
+- `oracle covariance / Mahalanobis`：仅作为 A06/A07 支撑分析，不作为 A05 主判据。
+
+**主指标**
+
+- `prototype estimation gap` = oracle-current-prototype NCM accuracy − stale-prototype NCM accuracy。
+- `prototype sufficiency gap` = max(kNN, linear probe, multi-center oracle) accuracy − oracle-current-prototype NCM accuracy。
+- per-class sufficiency gap：按类别报告上述 gap，而不是只报告平均值。
+- old/new confusion：单 prototype 失败是否主要来自旧类互混，还是新类吸引导致的 task-recency bias。
+- 结构解释量：类内散度、有效秩、多模态度、hubness、prototype density 对 per-class sufficiency gap 的解释量。
+
+**支持 A05 的失败条件**
+
+A05 作为论文主线的最低门槛：
+
+1. `prototype sufficiency gap` 在至少 2 个数据集和 2 类顺序中稳定 ≥ 5 percentage points；
+2. bootstrap 95% CI 的下界仍 ≥ 3 percentage points；
+3. 至少 30% 旧类出现 ≥ 10 percentage points 的 per-class sufficiency gap；
+4. 该 gap 不能被 stale prototype 漂移单独解释，即 oracle-current-prototype 已经消除均值位置误差后仍存在明显差距；
+5. 类内结构指标对 gap 有稳定解释力，且优于仅用 task age 或 first-task coverage 的解释。
+
+**拒绝 A05 的条件**
+
+出现以下任一情况，应放弃 A05 主线：
+
+- oracle-current-prototype NCM 与 kNN/linear probe/multi-center oracle 的差距在多数数据集 < 2 percentage points；
+- 差距只出现在单一数据集、单一类顺序或少量异常类别；
+- gap 主要由归一化、校准或旧类 age 解释，而不是单 prototype 表达能力不足；
+- stale-prototype 到 oracle-current-prototype 的提升已经解释了大部分旧类误差，说明问题主要仍是 prototype 位置估计。
+
+**不能作为贡献证据的结果**
+
+- 只证明 stale prototype 不如 oracle prototype；
+- 只证明 NCM 不如端到端训练的更大 classifier；
+- 只用 t-SNE/UMAP 展示多模态；
+- 只在 CUB 或少量细粒度类别上看到现象；
+- 用隐藏旧类结果调参后再报告 oracle prototype 不足。
+
+### A03 诊断协议：当前任务数据是否能代理旧任务函数
+
+**核心问题**
+
+在 exemplar-free 条件下，当前任务数据上的 teacher-student 一致性、feature mapping residual 或 proxy distance，能否预测隐藏旧类上的函数保持？如果不能，LwF、当前数据漂移估计、EFC 约束和 ADC/APR 类 proxy 的共同训练信号都需要重新解释。
+
+**自变量**
+
+- 当前数据支持度：当前任务样本到旧类 prototype / old-class feature subspace 的距离。
+- 新旧语义距离：WordNet 层级、类别名称语义嵌入或预训练视觉特征距离；具体实现后固定一种主口径和一种备用口径。
+- first-task coverage：A01 控制变量，只用于分层，不作为主张。
+- task age 与任务粒度：旧类出现时间、任务数量、每步类别数。
+- 轨迹类型：LwF 蒸馏轨迹、prototype-centric 轨迹；若后续有实现，再加入 LDC/ADC/APR 类轨迹。
+- teacher 信号质量：当前数据上的 entropy、margin、old-logit mass、top-k old-class coverage。
+
+**当前数据可观测指标**
+
+- 当前任务样本上的 old-logit KL / MSE：旧模型与新模型对旧类别输出的一致性。
+- 当前任务样本上的 rank correlation：旧类别 logits 排序保持。
+- 当前任务样本上的 teacher entropy、margin、old-class probability mass。
+- 当前任务样本 feature 在旧模型与新模型之间的 paired residual。
+- 当前样本到旧类 prototype 的最近邻距离、密度和覆盖度。
+- 若使用现有 ADC/APR 实现或公开复现：adversarial proxy 到旧 prototype 的距离和迁移一致性；不得据此设计新 proxy。
+
+**隐藏 oracle 指标**
+
+- 隐藏旧类样本上的 output retention：旧模型与新模型 old-logit KL、top-k rank preservation。
+- 隐藏旧类样本上的 feature retention：同类 feature cosine、CKA 或 prototype drift oracle error。
+- 隐藏旧类分类保持：old-class accuracy、balanced old accuracy、per-class forgetting。
+- harmful-update 标签：某旧类在当前任务后 accuracy 或 margin 下降超过预注册阈值，例如 5 percentage points。
+- oracle drift gap：当前数据估计的 feature drift 与隐藏旧类真实 drift 的误差。
+
+**主判据**
+
+- 预测性：当前数据指标预测 harmful-update 的 AUROC、AUPRC、Brier score、ECE。
+- 相关性：当前数据指标与隐藏旧类 retention / forgetting 的 Spearman 和 Pearson。
+- 跨域稳定性：在一个数据集或类顺序上确定指标方向后，是否能迁移到未参与选择的数据集和类顺序。
+- 替代解释控制：控制 first-task coverage、task age、old/new 语义距离后，当前数据指标是否仍有独立解释力。
+
+**支持 A03 的失败条件**
+
+A03 作为论文主线的最低门槛：
+
+1. 当前数据指标在预测 hidden-old harmful-update 时 AUROC ≤ 0.60，且 AUPRC 接近类别先验；
+2. 当前数据一致性高但隐藏旧类函数保持差的反例在至少 2 个数据集和 2 类顺序中稳定出现；
+3. 当前数据指标与 hidden-old retention 的 Spearman |ρ| ≤ 0.20，或方向在数据集/顺序间不稳定；
+4. 语义距离、first-task coverage 或当前数据支持度能解释“当前数据看似可靠但旧类失效”的分层现象；
+5. 若加入现有 ADC/APR proxy，proxy 指标也必须证明能够或不能够弥补该代理缺口；不能只报告最终准确率。
+
+**拒绝 A03 的条件**
+
+出现以下任一情况，应放弃 A03 主线：
+
+- 当前数据指标在未参与选择的数据集和类顺序上稳定预测 hidden-old retention，AUROC ≥ 0.75 且 Spearman ≥ 0.50；
+- 简单 teacher entropy、old-logit mass 或当前样本到旧 prototype 距离已经足够解释旧类保持；
+- 失效只来自某个训练失败的 baseline，而不是跨轨迹、跨数据集的代理问题；
+- 加入 semantic distance、task age、first-task coverage 后，A03 的独立解释力消失。
+
+**不能作为贡献证据的结果**
+
+- 只证明 LwF 最终准确率低；
+- 只证明当前类和旧类输入分布不同；
+- 只看 teacher entropy 与 forgetting 的单次相关；
+- 用隐藏旧类 oracle 信息选择 proxy 或阈值，再声称当前数据代理有效；
+- 只比较平均准确率，不报告 output / feature / class-level retention。
+
+### 最小实验矩阵
+
+**筛选矩阵：判断方向是否值得继续**
+
+| 维度 | 最小设置 |
+|---|---|
+| 数据集 | CIFAR-100、CUB-200 |
+| 类顺序 | random、semantic-clustered、semantic-diverse |
+| Seed | 每类顺序 2 个 |
+| 任务协议 | CIFAR-100 base 10 + 9 increments；CUB-200 base 20 + 9 increments |
+| 轨迹来源 | SimpleCIL/NCM 或 FeTrIL；LwF |
+| 必报指标 | A05 的 sufficiency gap；A03 的 AUROC/Spearman；per-class old/new accuracy；first-task coverage |
+| 通过条件 | A05 或 A03 至少一项满足支持条件中的跨数据集、跨顺序稳定性 |
+
+**论文门矩阵：若筛选通过才扩展**
+
+| 维度 | 最小设置 |
+|---|---|
+| 数据集 | CIFAR-100、ImageNet-100、CUB-200 |
+| 类顺序 | random、semantic-clustered、semantic-diverse |
+| Seed | 每类顺序至少 3 个 |
+| 任务协议 | cold-start，base 类别数固定，increment 类别数固定 |
+| 轨迹来源 | SimpleCIL/NCM、FeTrIL、LwF；可选加入 LDC/ADC/APR/AdaGauss/EFC++ 公开或复现实验 |
+| 显著性 | bootstrap 95% CI，报告效应量而不只报告 p-value |
+| 关闭条件 | 两个候选均未满足支持条件，则回到 A02/A18/A19 等评测假设，不强行设计方法 |
+
 ## 历史记录：上一轮最值得继续研究的三个假设
 
 以下为 2026-06-25 Assumption Mining 的历史结论，已被 2026-06-27 严格筛选替代；保留用于追溯。
@@ -374,7 +562,7 @@
 
 - 当前没有选定新的算法方向。
 - IDEA-001 保持 `暂缓（Weak Reject）`，本轮不继续优化。
-- 下一阶段只允许为 A01、A05、A07 固化诊断协议和失败标准；在诊断完成前，不进入方法设计。
+- A05 与 A03 已进入诊断协议阶段；在协议审查和最小实验矩阵确认前，不进入方法设计。
 
 ### IDEA-002：低秩协方差漂移的可靠迁移
 

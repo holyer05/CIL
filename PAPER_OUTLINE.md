@@ -67,7 +67,7 @@
 
 ### 当前状态
 
-`未开始诊断`
+`协议已固化，未运行实验`
 
 ## 条件性论文主线 B：当前任务数据不能可靠代理旧任务函数
 
@@ -92,7 +92,47 @@
 
 ### 当前状态
 
-`未开始诊断`
+`协议已固化，未运行实验`
+
+## A05/A03 共同诊断协议 v1
+
+### 共同控制
+
+- 数据集：CIFAR-100、ImageNet-100、CUB-200。
+- 类顺序：random、semantic-clustered、semantic-diverse。
+- cold-start 协议：CIFAR-100 与 ImageNet-100 使用 base 10 + increments of 10；CUB-200 使用 base 20 + increments of 20。
+- first-task coverage 作为控制变量，不作为主张。
+- hidden old data 只作为 oracle evaluation，不进入训练、调参、阈值选择或方法设计。
+- 轨迹来源至少包含一个 prototype-centric baseline 和一个 current-data distillation baseline。
+
+### A05 的主证据
+
+- `prototype sufficiency gap`：max(hidden-old kNN, hidden-old linear probe, multi-center oracle) − oracle-current-prototype NCM。
+- 支持门槛：至少 2 个数据集、2 类顺序中 gap ≥ 5 pp，bootstrap 95% CI 下界 ≥ 3 pp，并且至少 30% 旧类出现 ≥ 10 pp per-class gap。
+- 拒绝门槛：oracle-current-prototype NCM 与更强 oracle 表示差距多数情况下 < 2 pp，或差距只由 stale prototype 漂移、归一化、校准、task age 解释。
+- 解释变量：类内散度、协方差有效秩、多模态度、prototype density、hubness、类间 margin。
+
+### A03 的主证据
+
+- 当前数据可观测指标：old-logit KL/MSE、rank correlation、teacher entropy/margin、old-class probability mass、feature paired residual、到旧 prototype 的距离和覆盖度。
+- hidden oracle 指标：old-logit retention、top-k rank preservation、feature retention、old-class accuracy、per-class forgetting、harmful-update 标签。
+- 支持门槛：当前数据指标预测 hidden-old harmful-update 的 AUROC ≤ 0.60，Spearman |ρ| ≤ 0.20，且“当前一致性高但旧类保持差”的反例跨至少 2 个数据集和 2 类顺序稳定出现。
+- 拒绝门槛：当前数据指标在未参与选择的数据集和类顺序上稳定预测 hidden-old retention，AUROC ≥ 0.75 且 Spearman ≥ 0.50。
+- 分层解释：新旧语义距离、first-task coverage、task age、当前数据支持度。
+
+### 最小实验矩阵
+
+筛选阶段只判断方向是否值得继续：
+
+| 维度 | 设置 |
+|---|---|
+| 数据集 | CIFAR-100、CUB-200 |
+| 类顺序 | random、semantic-clustered、semantic-diverse |
+| Seed | 每类顺序 2 个 |
+| 轨迹来源 | SimpleCIL/NCM 或 FeTrIL；LwF |
+| 必报指标 | A05 sufficiency gap；A03 AUROC/Spearman；per-class old/new accuracy；first-task coverage |
+
+若筛选通过，论文门矩阵扩展为 CIFAR-100、ImageNet-100、CUB-200，每类顺序至少 3 个 seed，并按需要加入 LDC/ADC/APR/AdaGauss/EFC++ 的公开或复现实验。
 
 ## 支撑性诊断：pseudo-feature 统计正确但流形错误
 
