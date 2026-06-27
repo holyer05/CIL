@@ -25,7 +25,8 @@
 | RESEARCH-002 | 2026-06-25 | `5974a56` | EFCIL 隐含假设挖掘 | 不适用 | - | 完成 | 记录 20 项假设；优先 A01、A05、A07 |
 | RESEARCH-003 | 2026-06-27 | `6021b01` | 近期 cold-start EFCIL 文献补充与假设严格筛选 | 不适用 | - | 完成 | 只保留 A05、A03；A01 降级为控制变量；A07 降级为支撑诊断 |
 | RESEARCH-004 | 2026-06-27 | `440cd1f` | 固化 A05/A03 诊断协议 | 不适用 | - | 完成 | 明确变量、oracle 指标、失败条件和最小实验矩阵；未写代码 |
-| RESEARCH-005 | 2026-06-27 | 待提交 | PI 级反向审稿 A05/A03 诊断协议 | 不适用 | - | 完成 | 结论 Revise before experiments；指出阈值、oracle split、矩阵和替代解释问题 |
+| RESEARCH-005 | 2026-06-27 | `e4cf3e6` | PI 级反向审稿 A05/A03 诊断协议 | 不适用 | - | 完成 | 结论 Revise before experiments；指出阈值、oracle split、矩阵和替代解释问题 |
+| RESEARCH-006 | 2026-06-27 | 待提交 | 修订 A05/A03 诊断协议 v1.1 | 不适用 | - | 完成 | 补齐 oracle split、A05 主比较器、预算匹配、A03 连续 retention、指标预注册、三阶段矩阵 |
 
 ## 详细记录
 
@@ -141,6 +142,23 @@
   5. 实验矩阵应分为 Sanity、Screen、Paper gate 三阶段。
 - 代码修改：无 Python、JSON、shell 或配置代码修改；仅更新 Markdown。
 - 模型实验：未运行；本条是协议审稿，不包含实验结果。
+
+### RESEARCH-006：A05/A03 诊断协议 v1.1 修订
+
+- 日期：2026-06-27
+- 操作范围：
+  - 将 hidden old oracle 明确拆分为 `oracle-fit`、`oracle-eval` 和 `final-audit`；
+  - 为 A05 明确 primary comparator：mean prototype vs one-center medoid、mean prototype vs 2-center oracle；
+  - 为 A05 增加 sample-budget matched 与 capacity-matched / capacity-accounted 对照；
+  - 为 A03 明确 primary continuous retention：hidden-old all-seen margin retention；
+  - 为 A03 预注册 output consistency、teacher confidence、feature response、support/coverage 和 controls 五类当前数据指标；
+  - 将实验矩阵修订为 Sanity、Screen、Paper gate 三阶段。
+- 关键约束：
+  - 不设计新方法，不写代码；
+  - hidden old data 只用于 analysis-only oracle；
+  - A03 的 broad claim 必须等待 `BASELINE-SCOPE-001` 后决定。
+- 代码修改：无 Python、JSON、shell 或配置代码修改；仅更新 Markdown。
+- 模型实验：未运行；本条是协议修订，不包含实验结果。
 
 ## 新实验模板
 

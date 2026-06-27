@@ -161,6 +161,48 @@
 | Screen | 判断 A05/A03 是否有稳定信号 | CIFAR-100 + CUB-200；3 类顺序；2 seeds | 至少一个候选满足修订后的支持条件 |
 | Paper gate | 支撑投稿级结论 | CIFAR-100 + ImageNet-100 + CUB-200；3 类顺序；≥3 seeds；加入可复现 drift/proxy 轨迹 | 跨数据集、顺序、seed 稳定 |
 
+## A05/A03 共同诊断协议 v1.1
+
+v1.1 覆盖 v1，作为实验前注册文本。
+
+### Oracle split
+
+- `oracle-fit`：只用于拟合 oracle prototype、medoid、kNN memory、linear probe、多中心 oracle。
+- `oracle-eval`：只用于报告主诊断结果、效应量和 CI。
+- `final-audit`：只在协议、指标和脚本冻结后读取一次，用于防止过拟合 oracle-eval。
+- 三者必须 class-balanced、互斥；所有 oracle comparator 使用相同 oracle-fit 样本预算。
+
+### A05 primary comparator
+
+- Primary-A：mean prototype NCM vs one-center medoid NCM，二者同为每类 1 个向量。
+- Primary-B：mean prototype NCM vs 2-center oracle NCM，测试最小多中心容量是否稳定改善 all-seen 分类。
+- 4/8-center、kNN、linear probe 只作为 secondary upper bound，不作为主判据。
+- 主指标：`A05-primary-gap-1`、`A05-primary-gap-2`、capacity/storage curve、per-class all-seen recall gap。
+
+### A03 continuous retention
+
+- Primary target：`A03-margin-retention`，即 hidden-old 样本真实类别 all-seen logit margin 在更新前后的连续变化。
+- Secondary targets：rank retention、feature retention、accuracy delta。
+- harmful-update 二值标签只作辅助，由 bootstrap noise 或 Screen 分位数派生，不使用固定 5 pp 阈值。
+
+### 指标族预注册
+
+A03 只使用以下预注册指标族作为主分析输入：output consistency、teacher confidence、feature response、support/coverage、controls。单项指标必须做多重比较控制；不得事后挑选最支持论点的指标。
+
+### 三阶段矩阵
+
+| 阶段 | 目的 | 范围 | 进入下一阶段条件 |
+|---|---|---|---|
+| Sanity | 验证环境、日志、oracle split、all-seen 评价和指标计算 | CIFAR-100；random + semantic-clustered；1 seed；SimpleCIL/NCM + LwF | 指标可重算，无 oracle 复用 |
+| Screen | 判断 A05/A03 是否有稳定信号 | CIFAR-100 + CUB-200；3 类顺序；2 seeds；SimpleCIL/NCM 或 FeTrIL + LwF | 至少一个候选满足 v1.1 支持条件 |
+| Paper gate | 支撑投稿级结论 | CIFAR-100 + ImageNet-100 + CUB-200；3 类顺序；≥3 seeds；加入 baseline mapping 证明必要轨迹 | 跨数据集、顺序、seed、轨迹稳定 |
+
+### 当前写作门
+
+- A05：保留，等待 baseline coverage mapping 与后续 sanity。
+- A03：保留但 claim scope conditional；若只能覆盖 LwF，则只能写 new-data distillation proxy，不写 broad current-data proxy。
+- 在 v1.1 sanity 前，不写正式摘要和方法章节。
+
 ## 支撑性诊断：pseudo-feature 统计正确但流形错误
 
 ### 可能成立的核心主张

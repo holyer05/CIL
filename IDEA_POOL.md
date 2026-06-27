@@ -624,6 +624,177 @@ v1 最大风险是 oracle 泄露。当前 `oracle-current-prototype`、`hidden-o
 - A03：**Weak Revise**。问题重要，但证据链依赖更多轨迹覆盖；否则容易被 reviewer 质疑为 LwF 个案。
 - 整体：**Revise before running experiments**。当前最安全的下一步不是跑实验，而是完成 `ASSUME-PROTOCOL-REV-001` 和 `BASELINE-SCOPE-001`。
 
+## 2026-06-27 诊断协议 v1.1：A05 与 A03
+
+本节修订并覆盖 v1 的实验前协议。v1.1 仍然只定义诊断和评价，不设计新方法、不写代码、不提出新 Loss、新模块或新网络。
+
+### v1.1 总原则
+
+1. hidden old data 只能作为 analysis-only oracle，不可进入模型训练、方法设计、超参数选择、阈值选择或代码路径。
+2. 所有阈值只作为 screening heuristic，论文主张必须依赖效应量、置信区间、跨数据集稳定性和替代解释排除。
+3. 先完成 baseline coverage mapping，再决定 A03 是 broad current-data proxy claim，还是 narrow new-data distillation claim。
+4. 实验必须按 Sanity -> Screen -> Paper gate 三阶段推进；任何阶段失败都停止扩展，不强行进入下一阶段。
+
+### Oracle split：oracle-fit / oracle-eval / final-audit
+
+每个数据集、类顺序、seed、任务和旧类都必须维护三份互斥 oracle 数据。若数据集有官方 train/test 划分，优先使用官方 train 中未被当前任务使用的重抽样视图做 oracle-fit/eval，官方 test 只用于 final-audit；若无法做到，必须在日志中显式记录限制。
+
+| 分割 | 用途 | 允许操作 | 禁止操作 |
+|---|---|---|---|
+| `oracle-fit` | 拟合 analysis-only oracle，例如 oracle prototype、kNN memory、linear probe、多中心 oracle | 计算 oracle statistics；拟合 probe；估计多中心 | 训练增量模型；选择方法；调超参；决定最终 claim |
+| `oracle-eval` | 报告主诊断结果和筛选信号 | 计算 A05/A03 主指标、CI、效应量 | 重新选择 K、阈值、指标族或类顺序 |
+| `final-audit` | 最终一次性确认，防止过拟合 oracle-eval | 只在 v1.1 指标、阈值和分析脚本冻结后读取一次 | 任何协议修订、指标挑选、失败后重试 |
+
+额外限制：
+
+- 同一旧类的 `oracle-fit/eval/final-audit` 必须 class-balanced；若样本不足，先降低 oracle-fit 预算，而不是复用 eval/final。
+- 所有 A05 oracle comparator 使用同一 `oracle-fit` 样本预算。
+- A03 当前数据指标的方向、主次指标、聚合方式必须在查看 `final-audit` 前冻结。
+- 报告中必须明确写出：这些 oracle 结果不是可部署方法，只是诊断上限和反事实比较。
+
+### A05 v1.1：primary comparator 与预算匹配
+
+**主问题修订**
+
+A05 不再笼统使用 `max(kNN, linear probe, multi-center)` 作为主证据。v1.1 将主问题拆成两个可审计问题：
+
+1. 单均值是否接近同容量 one-vector oracle？
+2. 最小多中心容量增加是否稳定改善旧类 all-seen 分类？
+
+**Primary comparator**
+
+- Primary-A：`oracle-current mean prototype NCM` vs `oracle one-center medoid NCM`。
+  - 目的：同为每类 1 个向量，检查失败是否来自“均值不是好中心”，而不是 prototype 数量不足。
+  - 判据：若 medoid 与 mean 差距很大，论文主张必须收窄为“mean prototype 估计形式不足”；不能直接声称“single prototype 容量不足”。
+- Primary-B：`oracle-current mean prototype NCM` vs `2-center oracle NCM`。
+  - 目的：用最小容量扩展检查类内多模态是否造成单均值瓶颈。
+  - 判据：只有当 2-center gap 稳定、且 Primary-A 不能解释主要差距时，才能支持“single prototype 容量不足”。
+
+**Secondary / exploratory comparators**
+
+- `4-center` 与 `8-center` oracle NCM：只用于容量曲线，不作为主判据。
+- hidden-old kNN 与 hidden-old linear probe：只作为 oracle upper bound 和 sanity check，不进入 primary gap。
+- Mahalanobis / covariance oracle：只作为 A06/A07 支撑诊断，不参与 A05 主结论。
+
+**Sample-budget matched**
+
+- mean prototype、medoid、2-center、4-center、8-center、kNN、linear probe 必须使用同一批 `oracle-fit` 样本。
+- 若某类 oracle-fit 样本少于预设预算，对所有 comparator 使用该类可用的共同最小预算。
+- linear probe 必须使用固定训练预算和固定正则化；不能按数据集或结果调参。
+
+**Capacity-matched / capacity-accounted controls**
+
+- 同容量对照：mean prototype vs one-center medoid，均为每类 1 个向量。
+- 容量曲线：1-center mean、1-center medoid、2-center、4-center、8-center，报告每类向量数和存储字节。
+- all-seen 口径：所有 comparator 必须在 old+new 已见类集合上分类；old-only 结果只能作为附表。
+- 容量解释规则：如果 2-center 明显优于 mean，但 4/8-center 不再提升，结论是“少量多模态容量足够”；如果提升只出现在高 K 或 linear probe，不能把它写成 prototype-specific 失败。
+
+**A05 v1.1 主指标**
+
+- `A05-primary-gap-1` = medoid NCM all-seen accuracy − mean prototype NCM all-seen accuracy。
+- `A05-primary-gap-2` = 2-center oracle NCM all-seen accuracy − mean prototype NCM all-seen accuracy。
+- `A05-capacity-slope` = 1-center -> 2-center -> 4-center -> 8-center 的 accuracy/storage 曲线。
+- `A05-class-gap` = per-class 2-center oracle recall − per-class mean prototype recall。
+- 结构解释：类内散度、有效秩、多模态度、hubness、prototype density、old/new margin 对 `A05-class-gap` 的解释量。
+
+**A05 v1.1 支持条件**
+
+以下条件必须同时满足，才允许 A05 进入 paper gate：
+
+1. `A05-primary-gap-2` 在 Screen 阶段至少 2 个数据集和 2 类顺序中稳定为正，且 bootstrap 95% CI 不跨 0；
+2. `A05-primary-gap-2` 至少达到该设置下 random-order seed 方差的 1.5 倍，避免用固定 pp 阈值替代效应量；
+3. `A05-primary-gap-1` 不能解释 `A05-primary-gap-2` 的大部分提升；否则主张收窄为 mean estimator 问题；
+4. gap 在 all-seen classification 中成立，不能只在 old-only 口径成立；
+5. 类内结构变量对 per-class gap 的解释量高于 task age、first-task coverage 和 old/new semantic distance 的控制变量。
+
+**A05 v1.1 拒绝条件**
+
+- 2-center gap 在 Screen 阶段不稳定，或 CI 跨 0；
+- medoid 已经解释大部分提升，说明问题主要是 mean center 选择，而非 single prototype 容量；
+- gap 只在 old-only 分类成立，进入 all-seen 后消失；
+- gap 主要由 norm drift、calibration、old/new prior shift 或 representation collapse 解释；
+- 高 K 或 linear probe 才显著改善，2-center 不改善，则不能用该证据支持 prototype 主线。
+
+### A03 v1.1：continuous retention 与指标族预注册
+
+**主问题修订**
+
+A03 不再以 harmful-update 二值标签作为主目标。v1.1 使用连续 hidden-old retention 作为主指标，harmful-update 只作为辅助可视化。
+
+**Primary continuous retention**
+
+对每个旧类 `c`、任务更新 `t -> t+1`，定义 analysis-only 的连续 retention 指标：
+
+- `A03-margin-retention(c,t)`：隐藏旧类样本真实类别 logit margin 在更新前后的均值变化；margin 使用 all-seen 类集合计算。
+- `A03-rank-retention(c,t)`：隐藏旧类样本旧类别 logits 排序的 Spearman/Kendall 保持。
+- `A03-feature-retention(c,t)`：隐藏旧类样本在更新前后特征方向的平均 cosine 保持。
+- `A03-accuracy-delta(c,t)`：per-class old accuracy 的连续变化，只作为主指标的可解释补充。
+
+主判据以 `A03-margin-retention` 为 primary target；rank、feature、accuracy 作为 secondary targets。harmful-update 标签仅由 `A03-margin-retention` 的 bootstrap noise 或 Screen 阶段分位数派生，不再固定 5 pp。
+
+**当前数据指标族预注册**
+
+v1.1 预注册以下指标族；后续不得事后新增指标并作为主证据：
+
+| 指标族 | 指标 | 预期用途 |
+|---|---|---|
+| Output consistency | 当前数据 old-logit KL/MSE、old-logit rank correlation | 测试新数据上旧函数一致性是否预测 hidden-old retention |
+| Teacher confidence | teacher entropy、teacher margin、old-class probability mass | 判断 teacher 信号是否只是 OOD 噪声或类先验 |
+| Feature response | 当前数据 old/new feature cosine、paired residual、feature norm drift | 测试当前数据上的表示变化是否外推到旧类 |
+| Support / coverage | 当前样本到旧 prototype 的距离、旧类邻域覆盖、old feature subspace residual | 测试当前数据是否覆盖旧函数区域 |
+| Controls | task age、first-task coverage、old/new semantic distance、current task size | 排除明显混杂因素 |
+
+**多重比较规则**
+
+- 每个指标族先报告 family-level summary，再报告单项指标。
+- primary analysis 使用预注册的 family-level summary，不从单项指标中挑最大相关性。
+- 单项指标显著性必须做 Benjamini-Hochberg FDR 或等价多重比较控制。
+- 若不同数据集上最佳指标不同，A03 只能写成“代理指标不稳定”，不能写成某个具体指标失败。
+
+**A03 v1.1 主判据**
+
+- 预测性：当前数据预注册指标族预测 `A03-margin-retention` 的 out-of-order Spearman、Pearson、R²。
+- 排序稳定性：在一个类顺序上确定指标方向后，迁移到 held-out 类顺序是否保持同向。
+- 校准：以 continuous retention 分位数构造辅助 harmful-update 标签时，报告 AUROC、AUPRC、Brier、ECE。
+- 分层解释：first-task coverage、task age、old/new semantic distance、support/coverage 是否解释“current-data consistency 高但 hidden-old retention 低”的反例。
+
+**A03 v1.1 支持条件**
+
+A03 进入 paper gate 必须满足：
+
+1. 预注册指标族对 `A03-margin-retention` 的 out-of-order 预测弱，且相关方向跨数据集/顺序不稳定；
+2. current-data consistency 高但 hidden-old margin retention 低的反例在至少 2 个数据集和 2 类顺序中出现；
+3. 该反例不能被 task age 或 first-task coverage 单独解释；
+4. 若 baseline coverage 只有 LwF，主张自动收窄为 new-data distillation proxy；若要 broad current-data proxy claim，必须至少加入一个 drift-estimation 或 proxy-based 轨迹。
+
+**A03 v1.1 拒绝条件**
+
+- 预注册指标族在 held-out 类顺序上稳定预测 `A03-margin-retention`；
+- teacher confidence、old-class mass 或 support/coverage 任一简单指标族已足够稳定解释 hidden-old retention；
+- 失效只发生在 LwF 或某个训练失败轨迹；
+- 控制 semantic distance、task age、first-task coverage 后，A03 信号消失。
+
+### 三阶段实验矩阵 v1.1
+
+| 阶段 | 目的 | 最小范围 | 必须满足才进入下一阶段 |
+|---|---|---|---|
+| Sanity | 验证环境、日志、oracle split、all-seen 口径和指标计算是否可靠 | CIFAR-100；random + semantic-clustered；1 seed；SimpleCIL/NCM + LwF | 工作区 clean；结果可追溯；oracle split 无复用；A05/A03 指标能稳定重算 |
+| Screen | 判断 A05/A03 是否存在跨设置稳定信号 | CIFAR-100 + CUB-200；random、semantic-clustered、semantic-diverse；2 seeds；SimpleCIL/NCM 或 FeTrIL + LwF | A05 或 A03 至少一个满足 v1.1 支持条件；否则关闭候选 |
+| Paper gate | 支撑投稿级结论 | CIFAR-100 + ImageNet-100 + CUB-200；3 类顺序；≥3 seeds；加入 baseline mapping 证明必要的 drift/proxy 轨迹 | 主张跨数据集、顺序、seed、轨迹稳定；替代解释审计通过 |
+
+阶段约束：
+
+- Sanity 失败时禁止扩大到 Screen。
+- Screen 失败时禁止进入方法设计，必须回到 A02/A18/A19 等评测假设。
+- Paper gate 前必须完成 `BASELINE-SCOPE-001`，明确 A03 的 claim scope。
+
+### v1.1 后的准入状态
+
+- A05：`Keep with revised protocol`。可进入 baseline coverage mapping；实验前还需确认 oracle split 与 all-seen 评价能在现有 PyCIL 日志中实现。
+- A03：`Keep but scope conditional`。在 baseline coverage mapping 完成前，只能作为条件性候选；不能预设 broad claim。
+- A01：继续作为 first-task coverage 控制变量。
+- A07：继续作为 A05 后续支撑诊断，不在 Screen 阶段单独展开。
+
 ## 历史记录：上一轮最值得继续研究的三个假设
 
 以下为 2026-06-25 Assumption Mining 的历史结论，已被 2026-06-27 严格筛选替代；保留用于追溯。
