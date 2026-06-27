@@ -16,6 +16,46 @@ from .core.manifest import create_run_dir, write_manifest
 from .core.repro import resolve_device, seed_everything
 
 
+def _start_gpu_memory_tracking(device: torch.device) -> dict[str, Any] | None:
+    if device.type != "cuda":
+        return None
+    try:
+        torch.cuda.set_device(device)
+        torch.cuda.init()
+        torch.cuda.reset_peak_memory_stats(device)
+    except RuntimeError as exc:
+        return {
+            "device": str(device),
+            "tracking_enabled": False,
+            "error": repr(exc),
+        }
+    return {
+        "device": str(device),
+        "tracking_enabled": True,
+    }
+
+
+def _collect_gpu_memory(device: torch.device, tracking: dict[str, Any] | None) -> dict[str, Any] | None:
+    if tracking is None:
+        return None
+    if not tracking.get("tracking_enabled", False):
+        return tracking
+    try:
+        return {
+            "device": str(device),
+            "tracking_enabled": True,
+            "allocated_mib": round(torch.cuda.memory_allocated(device) / 1024 / 1024, 3),
+            "reserved_mib": round(torch.cuda.memory_reserved(device) / 1024 / 1024, 3),
+            "max_allocated_mib": round(torch.cuda.max_memory_allocated(device) / 1024 / 1024, 3),
+        }
+    except RuntimeError as exc:
+        return {
+            "device": str(device),
+            "tracking_enabled": False,
+            "error": repr(exc),
+        }
+
+
 def run(config_path: str) -> dict[str, Any]:
     started_at = datetime.now(timezone.utc).isoformat()
     timer_start = time.perf_counter()
@@ -25,8 +65,7 @@ def run(config_path: str) -> dict[str, Any]:
 
     seed_state = seed_everything(int(config["seed"]), bool(config.get("deterministic", True)))
     device = resolve_device(config.get("device", "cuda:0"))
-    if device.type == "cuda":
-        torch.cuda.reset_peak_memory_stats(device)
+    gpu_tracking = _start_gpu_memory_tracking(device)
 
     train_set, test_set, dataset_info = build_dataset(config["data"])
     loader = build_loader(train_set, config.get("loader", {}))
@@ -42,14 +81,7 @@ def run(config_path: str) -> dict[str, Any]:
     write_json(config_snapshot_path, config)
     elapsed_seconds = time.perf_counter() - timer_start
     finished_at = datetime.now(timezone.utc).isoformat()
-    gpu_memory = None
-    if device.type == "cuda":
-        gpu_memory = {
-            "device": str(device),
-            "allocated_mib": round(torch.cuda.memory_allocated(device) / 1024 / 1024, 3),
-            "reserved_mib": round(torch.cuda.memory_reserved(device) / 1024 / 1024, 3),
-            "max_allocated_mib": round(torch.cuda.max_memory_allocated(device) / 1024 / 1024, 3),
-        }
+    gpu_memory = _collect_gpu_memory(device, gpu_tracking)
 
     manifest = {
         "status": "completed",
